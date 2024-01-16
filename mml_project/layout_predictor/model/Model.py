@@ -527,12 +527,12 @@ class RobertaEncoder(FairseqEncoder):
     """RoBERTa encoder Modified."""
 
     def __init__(self):
-        curr_path = os.path.abspath(os.path.join(os.path.join(os.path.abspath(__file__), os.pardir), os.pardir))
-        with open(curr_path + "/configs/test-args.pkl", "rb") as f:
-            args = pkl.load(f)
+        curr_path = os.path.abspath(os.path.join(os.path.join(os.path.abspath(__file__), os.pardir), os.pardir)) # Modified
+        with open(curr_path + "/configs/test-args.pkl", "rb") as f: #
+            args = pkl.load(f)  #
 
-        with open(curr_path + "/configs/test-dictionary.pkl", "rb") as f:
-            dictionary = pkl.load(f)
+        with open(curr_path + "/configs/test-dictionary.pkl", "rb") as f:   #
+            dictionary = pkl.load(f)    #
 
         super().__init__(dictionary)
 
@@ -574,34 +574,16 @@ class RobertaEncoder(FairseqEncoder):
     def forward(
         self,
         src_tokens,
-        features_only=False,
         return_all_hiddens=False,
-        masked_tokens=None,
         object_pos=None,
         **unused,
     ):
-        """
-        Args:
-            src_tokens (LongTensor): input tokens of shape `(batch, src_len)`
-            features_only (bool, optional): skip LM head and just return
-                features. If True, the output will be of shape
-                `(batch, src_len, embed_dim)`.
-            return_all_hiddens (bool, optional): also return all of the
-                intermediate hidden states (default: False).
-
-        Returns:
-            tuple:
-                - the LM output of shape `(batch, src_len, vocab)`
-                - a dictionary of additional data, where 'inner_states'
-                  is a list of hidden states. Note that the hidden
-                  states have shape `(src_len, batch, vocab)`.
-        """
         x, extra = self.extract_features(
             src_tokens, return_all_hiddens=return_all_hiddens, object_pos=object_pos
         )
         return x, extra
 
-    def extract_features(self, src_tokens, return_all_hiddens=False, object_pos=None, **kwargs):
+    def extract_features(self, src_tokens, return_all_hiddens=False, object_pos=None, **kwargs): # src_token: B x T
         encoder_out = self.sentence_encoder(
             src_tokens,
             return_all_hiddens=return_all_hiddens,

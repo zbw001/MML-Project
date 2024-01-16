@@ -187,4 +187,6 @@ Network Trash Folder
 Temporary Items
 .apdisk
 *.pth
-mml_project/layout_predictor/checkpoint/
+mml_project/layout_predictor/checkpoints/
+mml_project/layout_predictor/outputs/
+mml_project/layout_predictor/data

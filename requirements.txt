@@ -1,1 +1,2 @@
 nltk==3.8.1
+clip @ git+https://github.com/openai/CLIP.git@a1d0717

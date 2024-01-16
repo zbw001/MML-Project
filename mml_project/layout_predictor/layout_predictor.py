@@ -41,7 +41,6 @@ class LayoutPredictor:
         self.model.load_state_dict(checkpoint['state_dict'], strict=True)
         self.model.cuda()
 
-
         self.nlp = spacy.load("en_core_web_sm")
         self.stoplist = set(stopwords.words("english")).union(
             self.nlp.Defaults.stop_words

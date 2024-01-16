@@ -10,7 +10,7 @@ setup(
     description="MML project",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
-    packages=find_packages(where="mml_project"),
+    packages=find_packages(),
     install_requires=read_requirements(),
     classifiers=[
         "Programming Language :: Python :: 3",
