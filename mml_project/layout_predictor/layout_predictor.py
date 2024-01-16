@@ -6,7 +6,6 @@ from pathlib import Path
 from nltk.corpus import wordnet
 from typing import Union
 from mml_project.layout_predictor.paths import DATA_PATH, CHECKPOINT_PATH, CONFIG_PATH
-from mml_project.layout_predictor.model import build_model
 from nltk.corpus import stopwords
 from fairseq.models.roberta import alignment_utils
 

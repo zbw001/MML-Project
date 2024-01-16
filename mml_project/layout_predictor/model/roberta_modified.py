@@ -1,5 +1,3 @@
-
-from .coord_head import BBox_Head
 import torch.nn as nn
 from torch import Tensor
 import torch
@@ -601,21 +599,3 @@ class RobertaEncoder(FairseqEncoder):
     def max_positions(self):
         """Maximum output length supported by the encoder."""
         return self.args.max_positions
-
-class Rel2Bbox(nn.Module):
-    def __init__(self, hidden_size=256, dropout=0.1, cfg=None):
-        super(Rel2Bbox, self).__init__()
-        self.encoder = torch.hub.load('pytorch/fairseq', 'roberta.base')
-        self.encoder.model.encoder = RobertaEncoder()
-        self.bbox_head = BBox_Head(hidden_size=hidden_size, dropout=dropout, cfg=cfg)
-
-    def forward(self, bpe_toks_tensor, src_masks_tensor,
-                inference=False, epoch=0, trg_mask=None, global_mask=None, object_pos_tensor=None):
-        # x, extra = self.encoder(src_tokens, features_only, return_all_hiddens, object_pos=object_pos,**kwargs)
-        features, _ = self.encoder.model.encoder(bpe_toks_tensor, object_pos=object_pos_tensor.to(bpe_toks_tensor.device))    # B x L x Hidden_dim (1024) 
-        if inference:
-            coarse_xy, coarse_gmm_xy, _, _ = self.bbox_head.inference(features, src_masks_tensor, trg_mask, global_mask)
-        else:
-            coarse_xy, coarse_gmm_xy, _, _ = self.bbox_head(epoch, features, src_masks_tensor, trg_mask, global_mask)
-
-        return coarse_xy, coarse_gmm_xy, None, None

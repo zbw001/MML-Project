@@ -344,6 +344,8 @@ class COCORelDataset(Dataset):
             caption = image[0]
             bpe_toks = self.roberta.encode(caption)
             sample_caption_tokens = image[1]
+            while sample_caption_tokens[-1].strip() == '':
+                sample_caption_tokens = sample_caption_tokens[:-1]
             alignment = alignment_utils.align_bpe_to_words(self.roberta, bpe_toks, sample_caption_tokens)
             real_object_index = []
             returnbboxs = []
@@ -361,10 +363,3 @@ class COCORelDataset(Dataset):
             else:
                 bpe_toks = bpe_toks[:128]
             return [bpe_toks.unsqueeze(0), real_object_index, True, caption, returnbboxs]
-
-if __name__ == '__main__':
-    ins_train_path = '../data/coco/instances_train2017.json'
-    sta_train_path = '../data/coco/stuff_train2017.json'
-    COCO = COCORelDataset(ins_train_path, sta_train_path)
-    print(COCO.vocab)
-    print(len(COCO))

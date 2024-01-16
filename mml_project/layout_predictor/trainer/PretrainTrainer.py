@@ -8,7 +8,6 @@ from mml_project.layout_predictor.trainer.loss import RegLoss, Log_Pdf, Rel_Loss
 from mml_project.layout_predictor.trainer.schedule import build_scheduler
 from mml_project.layout_predictor.trainer.iou import IOU_calculator
 
-
 class PretrainTrainer:    
     def __init__(self, model, dataloader, opt, cfg):
         self.logger = logging.getLogger(self.__class__.__name__)

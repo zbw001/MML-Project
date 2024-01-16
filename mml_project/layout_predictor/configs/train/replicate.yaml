@@ -1,19 +1,33 @@
 # @package _group_
 
-epochs: 50
-batch_size: 256
-pretrained_weight: 'pretrained.pth'
-ENCODER:
-    LR_SCHEDULER: 'BertScheduler'   # BaseScheduler, ChrisScheduler, BertScheduler
-    WARMUP_RATIO: 0.
-    HOLD_RATIO: 0.
-    DECAY_RATIO: 1.
-    MAX_LR: 0.000001
-    MIN_LR: 0.00000001
-BBOX_HEAD:
-    LR_SCHEDULER: 'BertScheduler'   # BaseScheduler, ChrisScheduler, BertScheduler
-    WARMUP_RATIO: 0.005
-    HOLD_RATIO: 0.001
-    DECAY_RATIO: 0.9
-    MAX_LR: 0.00004
-    MIN_LR: 0.00000001
+pretrained_weights: null
+relative_loss_coef: 0.1
+
+batch_size: 64
+
+lightning_trainer:
+    max_epochs: 50
+
+optimize:
+    encoder:
+        optimizer_type: Adam # Maybe AdamW?????
+        weight_decay: 0.01
+        scheduler_type: BertScheduler
+        warmup_steps: 0
+        hold_steps: 0
+        decay_steps: 100000 # 1.0 TODO: Fix
+        max_lr: 0.000001
+        min_lr: 0.00000001
+
+    coord_head:
+        optimizer_type: Adam # Maybe AdamW?????
+        weight_decay: 0.01 # TOO HIGH???
+        scheduler_type: 'BertScheduler'   # BaseScheduler, ChrisScheduler, BertScheduler
+        warmup_steps: 500 # 0.005 TODO: fix
+        hold_steps: 100 # 0.001 TODO: Fix
+        decay_steps: 90000 # 0.9 TODO: Fix
+        max_lr: 0.00004
+        min_lr: 0.00000001
+
+wandb:
+    project: spatial-temporal-control
