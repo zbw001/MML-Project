@@ -1,0 +1,19 @@
+# @package _group_
+
+epochs: 50
+batch_size: 256
+pretrained_weight: 'pretrained.pth'
+ENCODER:
+    LR_SCHEDULER: 'BertScheduler'   # BaseScheduler, ChrisScheduler, BertScheduler
+    WARMUP_RATIO: 0.
+    HOLD_RATIO: 0.
+    DECAY_RATIO: 1.
+    MAX_LR: 0.000001
+    MIN_LR: 0.00000001
+BBOX_HEAD:
+    LR_SCHEDULER: 'BertScheduler'   # BaseScheduler, ChrisScheduler, BertScheduler
+    WARMUP_RATIO: 0.005
+    HOLD_RATIO: 0.001
+    DECAY_RATIO: 0.9
+    MAX_LR: 0.00004
+    MIN_LR: 0.00000001

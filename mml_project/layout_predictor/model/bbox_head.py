@@ -2,72 +2,32 @@ import torch
 import torch.nn as nn
 import math
 from torch.distributions.multivariate_normal import MultivariateNormal
-from .Encoder import TransformerEncoder
-from .Decoder import TransformerDecoder, CustomTransformerDecoder
-from .transformer_layers import TransformerRefineLayer
+from .Decoder import CustomTransformerDecoder
 from .Inference_PDFDecoder import greedy_PDF
-import os
-import json
 import random
 
-class Linear_head(nn.Module):
-    def __init__(self, input_dim, box_dim, output_dim):
-        super(Linear_head, self).__init__()
-        self.box_emb_size = 64
-        self.box_embedding = nn.Linear(box_dim, self.box_emb_size)
-        self.dense = nn.Linear(input_dim+self.box_emb_size, self.box_emb_size)
-        self.feed_forward = nn.Linear(self.box_emb_size, output_dim)
-        self.activation = nn.Sigmoid()
+class GMM2D(nn.Module):
+    GMM_PARAM_NUM = 6
+    def __init__(self, 
+                 hidden_size: int,
+                 num_componenets: int, 
+                 temperature: float,
+                 X_Softmax=False, 
+                 greedy: bool = False):
+        super().__init__()
 
-    def forward(self, x, box):
-        box_embed = self.box_embedding(box)
-        x = torch.cat((x, box_embed), dim=-1)
-        x = self.dense(x)
-        x = self.feed_forward(x+box_embed)
-        x = self.activation(x) 
-        xy = x[:, :, :2]
-        wh = x[:, :, 2:]
-        return wh, xy, None, None , None
-    
-class Decoder_Linear_head(nn.Module):
-    def __init__(self, input_dim, box_dim):
-        super(Decoder_Linear_head, self).__init__()
-        self.dense = nn.Linear(input_dim, box_dim)
-#         self.feed_forward = nn.Linear(self.box_emb_size, output_dim)
-        self.activation = nn.Sigmoid()
-
-    def forward(self, x):
-        x = self.dense(x)
-        x = self.activation(x) 
-        xy = x[:, :, :2]
-        wh = x[:, :, 2:]
-        return wh, xy, None, None , None
-
-class GMM_head(nn.Module):
-    def __init__(self, hidden_size, condition=False, X_Softmax=False, greedy=False, 
-                 cfg=None):
-        super(GMM_head, self).__init__()
         self.hidden_size = hidden_size
         self.aug_size = 64
-        self.gmm_comp_num = 5
-        self.gmm_param_num = 6 # pi, u_x, u_y, sigma_x, sigma_y, rho_xy
-        self.xy_bivariate = nn.Linear(self.hidden_size, self.gmm_comp_num*self.gmm_param_num)
-        self.condition = condition
+        self.num_componenets = num_componenets
         self.X_Sfotmax = X_Softmax
         self.greedy = greedy
-        self.xy_temperature = cfg['MODEL']['DECODER']['XY_TEMP']
-        self.wh_temperature = cfg['MODEL']['DECODER']['WH_TEMP']
-        if condition:
-            self.xy_embedding = nn.Linear(2, self.aug_size)
-            self.dropout = nn.Dropout(0.1)
-            self.wh_bivariate = nn.Linear(self.hidden_size+self.aug_size, self.gmm_comp_num*self.gmm_param_num)
-        self.is_training = False
-    
-    def forward(self, x):
-        batch_size = x.size(0)
+        self.temperature = temperature
 
-        xy_gmm = self.xy_bivariate(x) #wh_bivariate
-        pi_xy, u_x, u_y, sigma_x, sigma_y, rho_xy = self.get_gmm_params(xy_gmm)
+        self.fc = nn.Linear(self.hidden_size, self.num_componenets * self.GMM_PARAM_NUM)
+
+    def forward(self, x):
+        batch_size = x.shape[0]
+        pi, u_x, u_y, sigma_x, sigma_y, rho_xy = self.get_gmm_params(self.fc(x))
 
         sample_xy = self.sample_box(pi_xy, u_x, u_y, sigma_x, sigma_y, rho_xy, 
                                     temp=self.xy_temperature,
@@ -113,24 +73,13 @@ class GMM_head(nn.Module):
         return raw_pdf.detach()
     
     def get_gmm_params(self, gmm_params):
-        '''
-        Args:
-            gmm_params: B x gmm_comp_num*gmm_param_num (B, length, 5*6)
-        '''
-        # Each: (B, length, 5)
-        pi, u_x, u_y, sigma_x, sigma_y, rho_xy = torch.split(gmm_params, self.gmm_comp_num, dim=2)
-        # print(u_x[0,0], sigma_x[0,0])
+        pi, u_x, u_y, sigma_x, sigma_y, rho_xy = torch.split(gmm_params, self.num_componenets, dim=2)
 
-#         u_x = nn.Sigmoid()(u_x)
-#         u_y = nn.Sigmoid()(u_y)
-#         sigma_x = sigma_x.clamp(max=0)
-#         sigma_y = sigma_y.clamp(max=0)
-
-        pi = nn.Softmax(dim=-1)(pi).reshape(-1, self.gmm_comp_num).detach().cpu()
-        u_x = u_x.reshape(-1, self.gmm_comp_num).detach().cpu()
-        u_y = u_y.reshape(-1, self.gmm_comp_num).detach().cpu()
-        sigma_x = torch.exp(sigma_x).reshape(-1, self.gmm_comp_num).detach().cpu()
-        sigma_y = torch.exp(sigma_y).reshape(-1, self.gmm_comp_num).detach().cpu()
+        pi = nn.Softmax(dim=-1)(pi).reshape(-1, self.num_componenets).detach().cpu()
+        u_x = u_x.reshape(-1, self.num_componenets).detach().cpu()
+        u_y = u_y.reshape(-1, self.num_componenets).detach().cpu()
+        sigma_x = torch.exp(sigma_x).reshape(-1, self.num_componenets).detach().cpu()
+        sigma_y = torch.exp(sigma_y).reshape(-1, self.num_componenets).detach().cpu()
         # Clamp to avoid singular covariance
         rho_xy = torch.tanh(rho_xy).clamp(min=-0.95, max=0.95).reshape(-1, self.gmm_comp_num).detach().cpu()
 
@@ -193,43 +142,12 @@ class GMM_head(nn.Module):
         x = m.sample()
         return x.cuda()
     
-
-class Refine_Encoder(nn.Module):
-    def __init__(self, hidden_size, num_heads, dropout, box_dim, sent_length=128):
-        super(Refine_Encoder, self).__init__()
-        self.aug_size = 64
-        self.box_embedding = nn.Linear(box_dim, self.aug_size)
-        self.layer = TransformerRefineLayer(size=hidden_size, ff_size=hidden_size*4, num_heads=num_heads, dropout=dropout, sent_length=sent_length)
-
-        self.layer_norm = nn.LayerNorm(hidden_size, eps=1e-6)
-        self.emb_dropout = nn.Dropout(p=dropout)
-        self.box_dim = box_dim
-        self._output_size = hidden_size
-        self._hidden_size = hidden_size
-        self.blank_box = torch.Tensor([2.,2.,2.,2.])
-
-        freeze=False
-        if freeze:
-            freeze_params(self)
-
-    def forward(self, context, input_box, mask, xy_pdf_score):
-        box = input_box.clone()
-        mask = mask.to(torch.bool)
-        box[:, :, :self.box_dim][~mask.squeeze(1)] = self.blank_box[:self.box_dim].to(box.device)
-        box_embed = self.box_embedding(box[:, :, :self.box_dim])
-
-        box_embed = self.emb_dropout(box_embed)
-        x = self.layer(context, box_embed, mask, xy_pdf_score)
-        refine_context = self.layer_norm(x)
-
-        return refine_context
-    
 class PDFDecoder(nn.Module):
     """
     BERT model : Bidirectional Encoder Representations from Transformers.
     """
 
-    def __init__(self, box_dim= 4, hidden_size=256, num_layers=2, attn_heads=2, dropout=0.1, cfg=None):
+    def __init__(self, hidden_size=256, num_layers=2, attn_heads=2, dropout=0.1, cfg=None):
         
         super(PDFDecoder, self).__init__()
 
@@ -245,8 +163,7 @@ class PDFDecoder(nn.Module):
                                           ff_size=hidden_size*4,
                                           num_layers=num_layers,num_heads=attn_heads, 
                                           dropout=dropout, emb_dropout=dropout)
-        self.box_predictor = GMM_head(hidden_size, condition=True, 
-                                        X_Softmax=cfg['MODEL']['REFINE']['X_Softmax'],
+        self.box_predictor = GMM_head(hidden_size, X_Softmax=cfg['MODEL']['REFINE']['X_Softmax'],
                                         greedy=cfg['MODEL']['DECODER']['GREEDY'],
                                         cfg=cfg)
 
@@ -265,32 +182,13 @@ class PDFDecoder(nn.Module):
 
         return box_predictor_input, None, sample_xy, None, xy_gmm, xy_pdf
 
-class BBox_Head(nn.Module):
+class Coord2DHead(nn.Module):
     def __init__(self, hidden_size, dropout, cfg=None):
-        super(BBox_Head, self).__init__()
-        
-        self.pad_index = 0
-        self.bos_index = 1
-        self.eos_index = 2 
-        self.box_dim = 4
+        super().__init__()
+
         self.cfg = cfg
-        
-        
-        # Build Decoder head
         self.Decoder = PDFDecoder(hidden_size=hidden_size, num_layers=2, 
                                              attn_heads=2, dropout=dropout, cfg=cfg)
-             
-        # Build Refine head
-        self.refine_module = cfg['MODEL']['REFINE']['REFINE']
-        if cfg['MODEL']['REFINE']['REFINE']:
-            self.refine_encoder = Refine_Encoder(hidden_size=hidden_size, num_heads=1,
-                                                 dropout=dropout, box_dim=self.box_dim,
-                                                 sent_length=64)
-            if cfg['MODEL']['REFINE']['HEAD_TYPE'] == 'Linear':
-                self.refine_box_head = Linear_head(hidden_size, self.box_dim, 4)
-            elif cfg['MODEL']['REFINE']['HEAD_TYPE'] == 'GMM':
-                self.refine_box_head = GMM_head(hidden_size, condition=True,
-                                           X_Softmax=False, greedy=False)
 
     def forward(self, epoch, encoder_output, mask, trg_mask, global_mask):
         # Decoder Forward

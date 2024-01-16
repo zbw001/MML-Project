@@ -1,5 +1,6 @@
 import lightning.pytorch as pl
 
+from mml_project.layout_predictor.dataset.coco_dataset import COCORelDataset
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 

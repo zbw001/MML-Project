@@ -1,0 +1,10 @@
+# @package _group_
+
+dataset:
+  name: 'coco'
+  path: '/mnt/e/coco/st_project'
+
+dataloader:
+  shuffle: True
+  val_split: 0.1
+  num_workers: 0

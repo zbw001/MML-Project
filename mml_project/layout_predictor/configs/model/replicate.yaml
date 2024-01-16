@@ -1,0 +1,36 @@
+# @package _group_
+ 
+encoder: 
+    NAME: 'Rel2Box'
+    REL_GT: False
+    VOCAB_SIZE: 206
+    OBJ_CLASSES_SIZE: 155
+    HIDDEN_SIZE: 768
+    NUM_LAYERS: 4
+    ATTN_HEADS: 4
+    DROPOUT: 0.1
+    ENABLE_NOISE: False
+    NOISE_SIZE: 64
+DECODER:
+    HEAD_TYPE: 'GMM' # 'GMM', 'Linear'
+    BOX_LOSS: 'PDF' # for 'GMM' -> 'PDF', for 'Linear' -> 'Reg'
+    SCHEDULE_SAMPLE: False
+    TWO_PATH: False
+    GLOBAL_FEATURE: True
+    GREEDY: True
+    XY_TEMP: 1.
+    WH_TEMP: 1.
+REFINE:
+    REFINE: True
+    HEAD_TYPE: 'Linear'
+    BOX_LOSS: 'Reg'
+    X_Softmax: True
+TRAINER: 
+    NAME: 'PretrainTrainer'
+LOSS:
+    WEIGHT_VOCAB_LOSS: 1.8
+    WEIGHT_TYPE_LOSS: 0.1
+    WEIGHT_COARSE_BOX_LOSS: 0.1
+    WEIGHT_REFINE_BOX_LOSS: 1.
+    KD_LOSS: True
+    TOPK: 5

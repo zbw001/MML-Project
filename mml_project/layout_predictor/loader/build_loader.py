@@ -4,7 +4,7 @@ from .base_data_loader import BaseDataLoader
 from torch.utils.data.dataloader import default_collate
 
 from .base_data_loader import BaseDataLoader
-from .COCODataset import COCORelDataset
+from ..dataset.COCODataset import COCORelDataset
 
 class DataLoader(BaseDataLoader):
     def __init__(self, dataset, batch_size, shuffle, validation_split, num_workers=0, collate_fn=None):
@@ -25,8 +25,7 @@ def build_loader(cfg):
     if cfg['DATASETS']['NAME'] == 'coco':
         ins_data_path = os.path.join(data_dir, 'instances_train2017.json')
         sta_data_path = os.path.join(data_dir,'stuff_train2017.json')
-        obj_id_v2 = cfg['DATALOADER']['OBJ_ID_MODULE_V2']
-        dataset = COCORelDataset(ins_data_path, sta_data_path, obj_id_v2=obj_id_v2)
+        dataset = COCORelDataset(ins_data_path, sta_data_path)
     else:
         raise Exception("Sorry, we only support coco datasets.")
     

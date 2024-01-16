@@ -2,7 +2,7 @@ import numpy as np
 from pycocotools.coco import COCO
 import numpy as np
 import pickle
-import json, os, random, math
+import json, os, random
 from collections import defaultdict
 import torch
 from torch.utils.data import Dataset
@@ -13,11 +13,11 @@ random.seed(42)
 
 class COCORelDataset(Dataset):
     def __init__(self, instances_json, stuff_json=None,
-               stuff_only=True, normalize_images=True, max_samples=None,
+               stuff_only=True, max_samples=None,
                include_relationships=True, min_object_size=0.02,
-               sentence_size=128, is_mask=True, is_std=False,
+               sentence_size=128, is_std=False,
                min_objects_per_image=3, max_objects_per_image=8,
-               include_other=False, instance_whitelist=None, stuff_whitelist=None, obj_id_v2=False):
+               include_other=False, instance_whitelist=None, stuff_whitelist=None):
         """
         A PyTorch Dataset for loading Coco and Coco-Stuff annotations and converting
         them to scene graphs on the fly.
@@ -63,11 +63,9 @@ class COCORelDataset(Dataset):
             print('Falling back to stuff_only=False.')
             
         self.is_std = is_std
-        self.is_mask = is_mask
         self.max_samples = max_samples
         self.sentence_size = sentence_size
         self.include_relationships = include_relationships
-        self.obj_id_v2 = obj_id_v2
 
         with open(instances_json, 'r') as f:
             instances_data = json.load(f)
