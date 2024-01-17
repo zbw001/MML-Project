@@ -31,6 +31,8 @@ class AttnOptimSampler:
 
         self.unet, self.vae, self.tokenizer, self.text_encoder, self.scheduler = pipeline.unet, pipeline.vae, pipeline.tokenizer, pipeline.text_encoder, pipeline.scheduler
 
+        self.unet.enable_gradient_checkpointing()
+
         self.cfg = cfg
         self.guidance_scale = cfg.guidance_scale
         self.num_inference_steps = cfg.num_inference_steps
@@ -40,7 +42,8 @@ class AttnOptimSampler:
         self.ctx.dtype = self.dtype
         self.ctx.device = self.device
         self.ctx.radius = self.radius
-        self.clip_loss = CLIPLoss(self.cfg.loss, dtype=self.dtype)
+        self.clip_loss = CLIPLoss(self.cfg, dtype=self.dtype)
+        self.clip_loss.to(self.device)
 
         self._setup_attention_control()
         self._freeze_modules() # The parameters to be optimized are not in the modules
@@ -144,7 +147,7 @@ class AttnOptimSampler:
             num_objects = encoder_conds["num_objects"]
             self.ctx.params = nn.Parameter(
                 torch.full(
-                    (self.num_inference_steps, num_objects),
+                    (self.num_inference_steps + 1, num_objects),
                     fill_value=self.cfg.optimization.weight_initialize_coef / num_objects if num_objects else 0.0,
                     dtype=self.dtype,
                     device=self.device,
@@ -163,6 +166,8 @@ class AttnOptimSampler:
                 loss = self.clip_loss(images, encoder_conds)
                 loss.backward()
                 optimizer.step()
+
+                torch.cuda.empty_cache()
             self.ctx.parmas = None
 
         return images

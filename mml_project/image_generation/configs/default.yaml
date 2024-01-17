@@ -1,5 +1,5 @@
 radius: 0.2
-num_inference_steps: 50
+num_inference_steps: 20
 guidance_scale: 7.5
 
 optimization:
@@ -8,6 +8,7 @@ optimization:
   optimizer_type: Adam
   optimizer_kwargs:
     lr: 0.005
+    eps: 0.0001
 
 layout_predictor:
   cfg_path: ../layout_predictor/configs/model/replicate.yaml

@@ -16,8 +16,10 @@ class CLIPLoss(nn.Module):
         self.dtype = dtype
         self.tokenizer = AutoTokenizer.from_pretrained(loss_cfg.clip_model, torch_dtype=dtype)
         self.clip_model = CLIPModel.from_pretrained(loss_cfg.clip_model, torch_dtype=dtype)
-        self.mean = torch.tensor(OPENAI_CLIP_MEAN, dtype=dtype).view(1, 3, 1, 1)
-        self.std = torch.tensor(OPENAI_CLIP_STD, dtype=dtype).view(1, 3, 1, 1)
+        mean = torch.tensor(OPENAI_CLIP_MEAN, dtype=dtype).view(1, 3, 1, 1)
+        std = torch.tensor(OPENAI_CLIP_STD, dtype=dtype).view(1, 3, 1, 1)
+        self.register_buffer("mean", mean)
+        self.register_buffer("std", std)
         self.similarity_func = torch.nn.CosineSimilarity()
         self.cached_text_embeddings = LRUCache(maxsize=16)
         self.radius = cfg.radius
@@ -32,12 +34,19 @@ class CLIPLoss(nn.Module):
             normalized_images = interpolate(normalized_images, size=(224, 224), mode="bilinear", align_corners=False)
         return self.clip_model.get_image_features(pixel_values=normalized_images)
     
+    @property
+    def device(self):
+        return next(self.parameters()).device
+    
     def encode_text(self, text: str):
         if text in self.cached_text_embeddings:
             return self.cached_text_embeddings[text]
-        inputs = self.tokenizer([text], padding=True, return_tensors="pt")
+        _inputs = self.tokenizer([text], padding=True, return_tensors="pt")
+        inputs = {
+            k: v.to(self.device) for k, v in _inputs.items()
+        }
         self.cached_text_embeddings[text] = self.clip_model.get_text_features(**inputs)
-        return self.cached_text_embeddings[text]
+        return self.cached_text_embeddings[text].to(device=self.device, dtype=self.dtype)
     
     def forward(self, images: torch.Tensor, encoder_conds: Dict[str, Any]):
         assert images.shape[0] == 1, "Only batch size 1 is supported"
@@ -55,8 +64,10 @@ class CLIPLoss(nn.Module):
             else:
                 text_embeddings = self.encode_text(k)
                 height, width = images.shape[-2:]
-                corner1 = torch.clamp(v - self.radius, min=0, max=1)
-                corner2 = torch.clamp(v + self.radius, min=0, max=1)
+
+                pos = torch.tensor(v, dtype=self.dtype, device=self.device)
+                corner1 = torch.clamp(pos - self.radius, min=0, max=1)
+                corner2 = torch.clamp(pos + self.radius, min=0, max=1)
                 x_range = int (corner1[0] * width), int (corner2[0] * width)
                 y_range = int (corner1[1] * height), int (corner2[1] * height)
                 if x_range[0] >= x_range[1] or y_range[0] >= y_range[1]:
@@ -64,10 +75,11 @@ class CLIPLoss(nn.Module):
                     continue
                 
                 image_embeddings = self.encode_images(
-                    images[:, :, 
-                           (height - 1 - y_range[1]): (height - 1 - y_range[0]), 
-                           x_range[0]: x_range[1]
-                          ]
+                    images[
+                        :, :, 
+                        y_range[0]: y_range[1],
+                        x_range[0]: x_range[1]
+                    ]
                 )
                 loss_local += 1 - self.similarity_func(text_embeddings, image_embeddings)
         return loss_global + loss_local * self.local_loss_coef

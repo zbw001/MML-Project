@@ -1,1 +1,0 @@
-from mml_project.layout_predictor.trainer.build_trainer import build_trainer

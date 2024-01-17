@@ -21,7 +21,7 @@ class CustomAttnProcessor(AttnProcessor2_0):
         self.name = name
         self.ctx = ctx
 
-    def _get_attention_mask(self, trg_len, center):
+    def _get_mask(self, trg_len, center):
         w = int (round (math.sqrt(trg_len)))
         assert w * w == trg_len
 
@@ -31,7 +31,7 @@ class CustomAttnProcessor(AttnProcessor2_0):
         mask = torch.zeros((w, w), dtype=torch.bool, device=self.ctx.device)
 
         x_diff = (torch.arange(w, dtype=self.ctx.dtype, device=self.ctx.device) / w - center[0]) ** 2
-        y_diff = (1.0 - torch.arange(w, dtype=self.ctx.dtype, device=self.ctx.device) / w - center[1]) ** 2 # TODO: 检查最终图像的位置s是否符合预期
+        y_diff = (torch.arange(w, dtype=self.ctx.dtype, device=self.ctx.device) / w - center[1]) ** 2 # TODO: 检查最终图像的位置s是否符合预期
         dist_mat = torch.sqrt(x_diff.unsqueeze(0) + y_diff.unsqueeze(1)) # TODO: check if this is correct
         
         mask[dist_mat > self.ctx.radius] = 1
@@ -59,11 +59,11 @@ class CustomAttnProcessor(AttnProcessor2_0):
             )
             masks = torch.stack(
                 [
-                    self._get_attention_mask(hidden_states.shape[-2], center=None),
-                    self._get_attention_mask(hidden_states.shape[-2], center=None),
+                    self._get_mask(hidden_states.shape[-2], center=None),
+                    self._get_mask(hidden_states.shape[-2], center=None),
                 ] + 
                 [
-                    self._get_attention_mask(hidden_states.shape[-2], center=encoder_hidden_states['object_pos'][key])
+                    self._get_mask(hidden_states.shape[-2], center=encoder_hidden_states['object_pos'][key])
                     for key in object_keys
                 ]
             ) # 0 : not masked, 1 : masked
@@ -74,6 +74,6 @@ class CustomAttnProcessor(AttnProcessor2_0):
 
             masks = masks.to(self.ctx.dtype)
             ret[0] = attn_out[0]
-            ret[1] = attn_out[1] + (attn_out[2:] - attn_out[1].unsqueeze(0)) * (self.ctx.params[self.ctx.step_idx].unsqueeze(-1) * (1 - masks[2:])).unsqueeze(-1)
+            ret[1] = attn_out[1] + ((attn_out[2:] - attn_out[1].unsqueeze(0)) * (self.ctx.params[self.ctx.step_idx].unsqueeze(-1) * (1 - masks[2:])).unsqueeze(-1)).sum(dim=0)
             return ret
             
