@@ -1,0 +1,13 @@
+
+num_inference_steps: 50
+guidance_scale: 7.5
+
+optimization:
+  num_steps: 3
+  optimizer_type: Adam
+  kwargs:
+    lr: 0.005
+
+layout_predictor:
+  cfg_path: ../layout_predictor/configs/model/replicate.yaml
+  model_path: ../layout_predictor/checkpoints/epoch=68-step=4000.ckpt
