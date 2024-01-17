@@ -8,9 +8,12 @@ from typing import Union
 from mml_project.layout_predictor.paths import DATA_PATH, CHECKPOINT_PATH, CONFIG_PATH
 from nltk.corpus import stopwords
 from fairseq.models.roberta import alignment_utils
+from mml_project.layout_predictor.model.text2coord import Text2Coord
 
 import nltk
 import spacy
+
+from mml_project.layout_predictor.utils.gmm import GMM2D
 
 def setup_nltk_and_spacy():
     nltk.download('wordnet')
@@ -23,79 +26,79 @@ def setup_nltk_and_spacy():
 setup_nltk_and_spacy()
 
 class LayoutPredictor:
-    def __init__(self, cfg_path: Union[str, Path], model_path: Union[str, Path]):
+    def __init__(self, cfg_path: Union[str, Path], model_path: Union[str, Path], device: Union[torch.device, str] = "cuda"):
         if not Path(cfg_path).is_file():
             raise FileNotFoundError(f"Config file not found: {cfg_path}")
         if not Path(model_path).is_file():
             raise FileNotFoundError(f"Model file not found: {model_path}")
+        self.device = device
         self.engine = inflect.engine()
         self.word_set = {}
-        self.roberta = torch.hub.load('pytorch/fairseq', 'roberta.base')
 
         self._load_word_set()
         model_cfg = OmegaConf.load(cfg_path)
-        self.model = build_model(model_cfg)
+        self.model = Text2Coord(model_cfg)
         checkpoint = torch.load(model_path)
+        state_dict_to_load = {}
+        for k, v in checkpoint['state_dict'].items():
+            if k.startswith('model.'):
+                state_dict_to_load[k[6:]] = v
 
-        self.model.load_state_dict(checkpoint['state_dict'], strict=True)
-        self.model.cuda()
+        self.model.load_state_dict(state_dict_to_load, strict=True)
+        self.model.to(self.device)
+        self.model.eval()
 
         self.nlp = spacy.load("en_core_web_sm")
         self.stoplist = set(stopwords.words("english")).union(
             self.nlp.Defaults.stop_words
         )
 
+    @torch.no_grad()
     def inference_sentence(self, sentence: str) -> None:
-        with torch.no_grad():
-            def check_relation(sentence, object_index):
-                bpe_toks = self.roberta.encode(sentence)
-                padding = torch.ones(128 - bpe_toks.shape[0]).int()
-                bpe_toks = torch.cat((bpe_toks, padding), dim = 0)
-                src_mask = (bpe_toks != 1).to(bpe_toks)
-                bpe_toks = bpe_toks.unsqueeze(0).to("cuda")
-                src_mask = src_mask.unsqueeze(0).to("cuda").unsqueeze(0)
-                trg_tmp = bpe_toks[:,:-1].to("cuda")
-                trg_mask = (trg_tmp != 1).unsqueeze(1)
-                trg_mask[:,0] = 1
-                doc = self.nlp(sentence)
-                alignment = alignment_utils.align_bpe_to_words(self.roberta, self.roberta.encode(sentence), doc)
-                object_tensor = torch.zeros(128).to(torch.bool)
-                for each_object_index in object_index:
-                    object_tensor[alignment[each_object_index]] = True
-                object_tensor = object_tensor.unsqueeze(0)
-                output1, _, _, _ = self.model(bpe_toks, src_mask, None, trg_mask=trg_mask, object_pos_tensor=object_tensor)
-                return output1, alignment
-
-            sentence = sentence.replace("\n", "")
-            sentence = sentence.rstrip()
-            sentence = sentence.lstrip()
+        def check_relation(sentence, object_index):
+            bpe_toks = self.model.encoder.encode(sentence)
+            padding = torch.ones(128 - bpe_toks.shape[0]).int()
+            bpe_toks = torch.cat((bpe_toks, padding), dim = 0)
             doc = self.nlp(sentence)
-            pos = []
-            for chunk in doc.noun_chunks:
-                full_noun = chunk.text
-                if full_noun.lower() in self.stoplist:
-                    continue
-                key_noun = chunk.root.text
-                word_index = chunk.root.i
-                key_noun = key_noun.lower()
-                if self._check_in_mscoco(full_noun):
-                    pos.append(word_index)
-            try:
-                output, alignment = check_relation(sentence, pos)
-            except:
-                return None
-            index = 0
-            print("Sentence: %s"%(sentence))
-            results = {}
-            for chunk in doc.noun_chunks:
-                if self._check_in_mscoco(chunk.text):
-                    result_index = alignment[pos[index]][0]
-                    x_cord = output[:,result_index][0][0]
-                    y_cord = output[:,result_index][0][1]
-                    print("%s position: (%.3f, %.3f)"%(chunk.text, x_cord, y_cord))
-                    results[chunk.text] = [x_cord.item(), y_cord.item()]
-                    index += 1
-            return results
+            alignment = alignment_utils.align_bpe_to_words(self.model.encoder, self.model.encoder.encode(sentence), doc)
+            object_tensor = torch.zeros(128).to(torch.bool)
+            for each_object_index in object_index:
+                object_tensor[alignment[each_object_index]] = True
+            bpe_toks = bpe_toks.unsqueeze(0)
+            object_tensor = object_tensor.unsqueeze(0)
+            gmm: GMM2D = self.model(bpe_toks.to(self.device), object_pos=object_tensor.to(self.device))[0]
+
+            return gmm, alignment
+
+        sentence = sentence.replace("\n", "")
+        sentence = sentence.rstrip()
+        sentence = sentence.lstrip()
+        doc = self.nlp(sentence)
+        pos = []
+        for chunk in doc.noun_chunks:
+            full_noun = chunk.text
+            if full_noun.lower() in self.stoplist:
+                continue
+            key_noun = chunk.root.text
+            word_index = chunk.root.i
+            key_noun = key_noun.lower()
+            if self._check_in_mscoco(full_noun):
+                pos.append(word_index)
+        try:
+            gmm, alignment = check_relation(sentence, pos)
+        except:
+            return None
+        index = 0
+        print("Sentence: %s"%(sentence))
+        results = {}
+        for chunk in doc.noun_chunks:
+            if self._check_in_mscoco(chunk.text):
+                result_index = alignment[pos[index]][0]
+                x, y = gmm[result_index].sample()
+                print("%s position: (%.3f, %.3f)" % (chunk.text, x, y))
+                results[chunk.text] = [x.item(), y.item()]
+                index += 1
+        return results
 
     def _check_in_mscoco(self, noun_pharse: str) -> bool:
         for each_cate in self.word_set:
@@ -121,7 +124,14 @@ class LayoutPredictor:
 # debug
 if __name__ == "__main__":
     layout_predictor = LayoutPredictor(
-        cfg_path=CONFIG_PATH / "coco_seq2seq_v9_ablation_4.yaml",
-        model_path=CHECKPOINT_PATH / "checkpoint_90_0.0.pth"
+        cfg_path=CONFIG_PATH / "model" / "replicate.yaml",
+        model_path=CHECKPOINT_PATH / "epoch=68-step=4000.ckpt"
     )
     print(layout_predictor.inference_sentence("The silver bed was situated to the right of the white couch."))
+    print(layout_predictor.inference_sentence("a bed room with a bed and a large window"))
+    print(layout_predictor.inference_sentence("an apple on the left of a table"))
+    print(layout_predictor.inference_sentence("an apple on the top of a cup"))
+    print(layout_predictor.inference_sentence("an apple placed on the left of a cup"))
+    print(layout_predictor.inference_sentence("an apple placed on the right of a cup"))
+    print(layout_predictor.inference_sentence("a bear flying high above a table"))
+    print(layout_predictor.inference_sentence("a bear hiding under a chair"))

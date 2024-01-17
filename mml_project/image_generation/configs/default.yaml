@@ -1,13 +1,18 @@
-
+radius: 0.2
 num_inference_steps: 50
 guidance_scale: 7.5
 
 optimization:
   num_steps: 3
+  weight_initialize_coef: 5.0
   optimizer_type: Adam
-  kwargs:
+  optimizer_kwargs:
     lr: 0.005
 
 layout_predictor:
   cfg_path: ../layout_predictor/configs/model/replicate.yaml
   model_path: ../layout_predictor/checkpoints/epoch=68-step=4000.ckpt
+
+loss:
+  clip_model: openai/clip-vit-base-patch32
+  local_loss_coef: 5.0

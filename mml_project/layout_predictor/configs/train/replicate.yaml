@@ -1,31 +1,32 @@
-# @package _group_
-
 pretrained_weights: null
-relative_loss_coef: 0.1
+gmm_loss_coef: 0.1 # match original implementation
+relative_loss_coef: 1.0
 
-batch_size: 64
+batch_size: 128
 
 lightning_trainer:
-    max_epochs: 50
+    # max_epochs: 60
+    max_steps: 4000
+    log_every_n_steps: 10
 
 optimize:
     encoder:
         optimizer_type: Adam # Maybe AdamW?????
         weight_decay: 0.01
         scheduler_type: BertScheduler
-        warmup_steps: 0
-        hold_steps: 0
-        decay_steps: 100000 # 1.0 TODO: Fix
+        warmup_ratio: 0
+        hold_ratio: 0
+        decay_ratio: 1.0
         max_lr: 0.000001
         min_lr: 0.00000001
 
     coord_head:
         optimizer_type: Adam # Maybe AdamW?????
-        weight_decay: 0.01 # TOO HIGH???
-        scheduler_type: 'BertScheduler'   # BaseScheduler, ChrisScheduler, BertScheduler
-        warmup_steps: 500 # 0.005 TODO: fix
-        hold_steps: 100 # 0.001 TODO: Fix
-        decay_steps: 90000 # 0.9 TODO: Fix
+        weight_decay: 0.01 # TODO: Try 0.001
+        scheduler_type: 'BertScheduler'
+        warmup_ratio: 0.005
+        hold_ratio: 0.001
+        decay_ratio: 0.9
         max_lr: 0.00004
         min_lr: 0.00000001
 

@@ -2,7 +2,7 @@ from omegaconf import DictConfig
 import torch
 from torch.optim.lr_scheduler import LRScheduler, LambdaLR
 
-def build_optimizer_and_scheduler(optimize_cfg: DictConfig, hidden_size: int, parameters) -> LRScheduler:
+def build_optimizer_and_scheduler(optimize_cfg: DictConfig, hidden_size: int, max_steps: int, parameters) -> LRScheduler:
     scheduler_type = optimize_cfg.scheduler_type
     if scheduler_type == "BaseScheduler":
         initial_lr = hidden_size ** (- 0.5)
@@ -18,12 +18,12 @@ def build_optimizer_and_scheduler(optimize_cfg: DictConfig, hidden_size: int, pa
 
     lr_func = None
     if scheduler_type == 'BaseScheduler':
-        warmup_steps = optimize_cfg.warmup_steps
+        warmup_steps = optimize_cfg.warmup_ratio * max_steps
         lr_func = lambda step : min(step ** (- 0.5), (warmup_steps ** (- 1.5))* step)
     elif scheduler_type == 'ChrisScheduler':
-        warmup_steps = optimize_cfg.warmup_steps
-        hold_steps = optimize_cfg.hold_steps
-        decay_steps = optimize_cfg.decay_steps
+        warmup_steps = optimize_cfg.warmup_ratio * max_steps
+        hold_steps = optimize_cfg.hold_ratio * max_steps
+        decay_steps = optimize_cfg.decay_ratio * max_steps
         max_lr = optimize_cfg.max_lr
         min_lr = optimize_cfg.min_lr
         def lr_func(step):
@@ -38,9 +38,9 @@ def build_optimizer_and_scheduler(optimize_cfg: DictConfig, hidden_size: int, pa
                 lr = min_lr
             return lr / initial_lr
     elif scheduler_type == 'BertScheduler':
-        warmup_steps = optimize_cfg.warmup_steps
-        hold_steps = optimize_cfg.hold_steps
-        decay_steps = optimize_cfg.decay_steps
+        warmup_steps = optimize_cfg.warmup_ratio * max_steps
+        hold_steps = optimize_cfg.hold_ratio * max_steps
+        decay_steps = optimize_cfg.decay_ratio * max_steps
         max_lr = optimize_cfg.max_lr
         min_lr = optimize_cfg.min_lr
         def lr_func(step):

@@ -9,10 +9,10 @@ class RelHingeLoss(nn.Module):
     def forward(self, gmm1: GMM2D, gmm2: GMM2D, relation_name: str):
         gmm1 = gmm1.copy()
         gmm2 = gmm2.copy()
-        gmm1.u_x = torch.clamp(gmm1.u_x, min=0.0, max=1.0)
-        gmm1.u_y = torch.clamp(gmm1.u_y, min=0.0, max=1.0)
-        gmm2.u_x = torch.clamp(gmm2.u_x, min=0.0, max=1.0)
-        gmm2.u_y = torch.clamp(gmm2.u_y, min=0.0, max=1.0)
+        # gmm1.u_x = torch.clamp(gmm1.u_x, min=0.0, max=1.0)
+        # gmm1.u_y = torch.clamp(gmm1.u_y, min=0.0, max=1.0)
+        # gmm2.u_x = torch.clamp(gmm2.u_x, min=0.0, max=1.0)
+        # gmm2.u_y = torch.clamp(gmm2.u_y, min=0.0, max=1.0)
 
         if relation_name == "above":
             diff = torch.max(gmm1.u_y, dim=-1)[0] - torch.min(gmm2.u_y, dim=-1)[0]

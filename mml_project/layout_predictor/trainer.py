@@ -16,9 +16,12 @@ class Text2CoordModule(LightningModule):
         super().__init__()
         self.save_hyperparameters()
 
+        self.max_steps = cfg.train.lightning_trainer.max_steps
+
         self.train_cfg = cfg.train
         self.model_cfg = cfg.model
         self.model = Text2Coord(cfg.model)
+        self.gmm_loss_coef = cfg.train.gmm_loss_coef
         self.relative_loss_coef = cfg.train.relative_loss_coef
         self.rel_hinge_loss = RelHingeLoss()
 
@@ -54,9 +57,7 @@ class Text2CoordModule(LightningModule):
         object_tensor = torch.stack(object_tensors)
 
         gmm: GMM2D = self.model(bpe_toks_tensor, object_pos=object_tensor)
-
         gmm_loss, relative_loss = 0.0, 0.0
-        
 
         for i in range(batch_size):
             relations = batch_relations[i]
@@ -79,7 +80,7 @@ class Text2CoordModule(LightningModule):
             else:
                 raise ValueError("Invalid data format for relations")
 
-        total_loss = gmm_loss + self.relative_loss_coef * relative_loss
+        total_loss = self.gmm_loss_coef * gmm_loss + self.relative_loss_coef * relative_loss
         return total_loss, gmm_loss, relative_loss
 
     def training_step(self, batch, batch_idx):
@@ -101,6 +102,9 @@ class Text2CoordModule(LightningModule):
         self.log('train/total_loss', total_loss)
         self.log('train/gmm_loss', gmm_loss)
         self.log('train/relative_loss', relative_loss)
+
+        self.log('train/encoder_lr', encoder_scheduler.get_last_lr()[0])
+        self.log('train/coord_head_lr', coord_head_scheduler.get_last_lr()[0])
         return total_loss
 
     def validation_step(self, batch, batch_idx):
@@ -118,13 +122,20 @@ class Text2CoordModule(LightningModule):
         self.log('test/relative_loss', relative_loss)
 
     def configure_optimizers(self):
-        encoder_optimizer, encoder_scheduler = build_optimizer_and_scheduler(self.train_cfg.optimize.encoder, self.model_cfg.hidden_size, self.model.encoder.parameters())
-        coord_head_optimizer, coord_head_scheduler = build_optimizer_and_scheduler(self.train_cfg.optimize.coord_head, self.model_cfg.hidden_size, self.model.coord_head.parameters())
+        encoder_optimizer, encoder_scheduler = build_optimizer_and_scheduler(self.train_cfg.optimize.encoder, self.model_cfg.hidden_size, self.max_steps, self.model.encoder.parameters())
+        coord_head_optimizer, coord_head_scheduler = build_optimizer_and_scheduler(self.train_cfg.optimize.coord_head, self.model_cfg.hidden_size, self.max_steps, self.model.coord_head.parameters())
 
         return [encoder_optimizer, coord_head_optimizer], [encoder_scheduler, coord_head_scheduler]
+    
+def check_config(cfg: DictConfig):
+    banned_keys = ['max_epochs', 'max_time', 'min_epochs']
+    for key in banned_keys:
+        assert key not in cfg.train.lightning_trainer, f"{key} must not be specified in config file"
+    assert "max_steps" in cfg.train.lightning_trainer, "max_steps must be specified in config file"
 
 @hydra.main(config_path="configs", config_name="default")
 def main(cfg: DictConfig) -> None:
+    check_config(cfg)
     model_module = Text2CoordModule(cfg)
     data_module = RelDataModule(batch_size=cfg.train.batch_size, data_cfg=cfg.data)
     wandb_logger = WandbLogger(

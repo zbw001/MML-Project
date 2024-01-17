@@ -1,7 +1,5 @@
-# @package _group_
-
 data_dir: '/mnt/e/coco/st_project'
+val_split_ratio: 0.1
 
 shuffle: True
-val_split: 0.1
 num_workers: 0

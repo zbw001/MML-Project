@@ -1,7 +1,7 @@
 import lightning.pytorch as pl
 from omegaconf import DictConfig
 import torch
-from mml_project.layout_predictor.dataset.coco_dataset import COCORelDataset
+from mml_project.layout_predictor.dataset.coco_dataset import MixedDataset, load_datasets
 from torch.utils.data import DataLoader
 from pathlib import Path
 
@@ -18,32 +18,28 @@ class RelDataModule(pl.LightningDataModule):
         
         self.batch_size = batch_size
 
-        self.instances_data_path = self.data_dir / "instances_train2017.json"
-        self.stuff_data_path = self.data_dir / "stuff_train2017.json"
+        self.train_instances_data_path = self.data_dir / "instances_train2017.json"
+        self.train_stuff_data_path = self.data_dir / "stuff_train2017.json"
+        # self.val_instances_data_path = self.data_dir / "instances_val2017.json"
+        # self.val_stuff_data_path = self.data_dir / "stuff_val2017.json"
 
-        self.test_instances_data_path = self.data_dir / "instances_val2017.json"
-        self.test_stuff_data_path = self.data_dir / "stuff_val2017.json"
+        self.val_split_ratio = data_cfg.val_split_ratio
 
-        self.val_split = data_cfg.val_split
         self.num_workers = data_cfg.num_workers
         self.shuffle = data_cfg.shuffle
-        
-        assert self.instances_data_path.exists(), f"{self.instances_data_path} does not exist."
-        assert self.stuff_data_path.exists(), f"{self.stuff_data_path} does not exist."
-        assert self.test_instances_data_path.exists(), f"{self.test_instances_data_path} does not exist."
-        assert self.test_stuff_data_path.exists(), f"{self.test_stuff_data_path} does not exist."
+
+        paths_to_check = [self.train_instances_data_path, self.train_stuff_data_path]
+        for path in paths_to_check:
+            if not path.exists():
+                raise ValueError(f"{path} does not exist")
 
     def setup(self, stage: str):
-        self._dataset = COCORelDataset(instances_json=str(self.instances_data_path), stuff_json=str(self.stuff_data_path))
-        dataset_size = len(self._dataset)
-        
-        val_size = int(dataset_size * self.val_split)
-        train_size = dataset_size - val_size
+        coco_dataset, gpt_dataset = load_datasets(instances_json=str(self.train_instances_data_path), stuff_json=str(self.train_stuff_data_path))
+        coco_dataset_train, coco_dataset_val = torch.utils.data.random_split(coco_dataset, [len(coco_dataset) - int(len(coco_dataset) * self.val_split_ratio), int(len(coco_dataset) * self.val_split_ratio)])
+        gpt_dataset_train, gpt_dataset_val = torch.utils.data.random_split(gpt_dataset, [len(gpt_dataset) - int(len(gpt_dataset) * self.val_split_ratio), int(len(gpt_dataset) * self.val_split_ratio)])
 
-        generator = torch.Generator().manual_seed(42)
-        self.train_dataset, self.val_dataset = torch.utils.data.random_split(self._dataset, [train_size, val_size], generator=generator)
-
-        self.test_dataset = COCORelDataset(instances_json=str(self.test_instances_data_path), stuff_json=str(self.test_stuff_data_path))
+        self.train_dataset = MixedDataset(coco_dataset_train, gpt_dataset_train)
+        self.val_dataset = MixedDataset(coco_dataset_val, gpt_dataset_val)
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True, shuffle=self.shuffle, collate_fn=_collate)
@@ -51,5 +47,5 @@ class RelDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True, shuffle=False, collate_fn=_collate)
 
-    def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True, shuffle=False, collate_fn=_collate)
+    # def test_dataloader(self):
+    #     return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers, pin_memory=True, shuffle=False, collate_fn=_collate)

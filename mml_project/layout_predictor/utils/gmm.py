@@ -65,7 +65,7 @@ class GMM2D:
         adjusted_pi = self.pi
         if self.temperature is not None:
             adjusted_pi = torch.log(adjusted_pi) / self.temperature
-            adjusted_pi -= torch.max(adjusted_pi, dim=-1, keepdim=True)
+            adjusted_pi -= torch.max(adjusted_pi, dim=-1, keepdim=True)[0]
             adjusted_pi = torch.exp(adjusted_pi)
             adjusted_pi /= torch.sum(adjusted_pi, dim=-1, keepdim=True)
             
@@ -74,8 +74,8 @@ class GMM2D:
         except:
             pi_idx = adjusted_pi.argmax(-1).unsqueeze(-1)
             
-        u_x = torch.gather(u_x, dim=-1, index=pi_idx)
-        u_y = torch.gather(u_y, dim=-1, index=pi_idx)
+        u_x = torch.gather(self.u_x, dim=-1, index=pi_idx)[..., 0]
+        u_y = torch.gather(self.u_y, dim=-1, index=pi_idx)[..., 0]
 
         if self.greedy:
             return torch.stack([u_x, u_y], dim=-1)
