@@ -4,6 +4,7 @@ from diffusers.pipelines import StableDiffusionPipeline
 import torch.nn as nn
 from tqdm.auto import tqdm
 from PIL import Image
+import os
 import numpy as np
 from omegaconf import DictConfig, OmegaConf
 from datetime import datetime
@@ -93,6 +94,9 @@ class AttnOptimSampler:
         self.scheduler.set_timesteps(self.num_inference_steps)
         latents = latents * self.scheduler.init_noise_sigma
 
+        store_latents=[]
+        store_latents.append(latents)
+
         block_size = self.cfg.optimization.gradient_checkpointing_block_size
 
         def denoise_steps(latents, idxs, timesteps):
@@ -115,11 +119,12 @@ class AttnOptimSampler:
             end_idx = min(start_idx + block_size, len(self.scheduler.timesteps))
             timesteps = self.scheduler.timesteps[start_idx : end_idx]
             latents = checkpoint(denoise_steps, latents, range(start_idx, end_idx), timesteps, use_reentrant=False)
+            store_latents.append(latents)
             pbar.update(len(timesteps))
 
         pbar.close()
 
-        return latents
+        return latents, store_latents
 
     def _decode_latents(self, latents: torch.Tensor):
         latents = latents.to(torch.float32)
@@ -179,17 +184,30 @@ class AttnOptimSampler:
             )
 
             optimizer = optimizer_cls([self.ctx.params], **self.cfg.optimization.optimizer_kwargs)
-            for _ in tqdm(range(self.cfg.optimization.num_steps), desc="Optimizing"):
-                denoised_latents = self._denoise_latents(
+            for epoch in tqdm(range(self.cfg.optimization.num_steps), desc="Optimizing"):
+                denoised_latents, store_latents = self._denoise_latents(
                     latents = latents,
                     encoder_conds = encoder_conds,
                 )
                 images = self._decode_latents(denoised_latents)
-                
+
                 optimizer.zero_grad()
                 loss = self.clip_loss(images, encoder_conds)
                 loss.backward()
                 optimizer.step()
+
+                if debug_flag == True:
+                    pil_image = self.to_pil_image(images[0])
+                    Adam_path = debug_path + "AdamStep/"
+                    os.makedirs(Adam_path, exist_ok=True)
+                    pil_image.save(Adam_path + "step%d.png"%(epoch))
+                if debug_flag == True:
+                    for step in range(len(store_latents)):
+                        img=self._decode_latents(store_latents[step])
+                        pil_image = self.to_pil_image(img[0])
+                        Denoise_path = debug_path + "DenoiseStep/"
+                        os.makedirs(Denoise_path, exist_ok=True)
+                        pil_image.save(Denoise_path + "epoch%d_step%d.png"%(epoch, step))
 
                 torch.cuda.empty_cache()
             self.ctx.parmas = None
