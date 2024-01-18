@@ -127,7 +127,6 @@ class AttnOptimSampler:
         return latents, store_latents
 
     def _decode_latents(self, latents: torch.Tensor):
-        latents = latents.to(torch.float32)
         batch_size = latents.shape[0]
         assert batch_size == 1
         latents = 1 / 0.18215 * latents
@@ -172,31 +171,29 @@ class AttnOptimSampler:
         else:
             raise ValueError(f'Unsupported optimizer type: {self.cfg.optimization.optimizer_type}')
 
-        with torch.set_grad_enabled(True), torch.cuda.amp.autocast(): # be careful not to include the text encoder in the gradient computation
-            num_objects = encoder_conds["num_objects"]
-            self.ctx.params = nn.Parameter(
-                torch.full(
-                    (self.num_inference_steps + 1, num_objects),
-                    fill_value=self.cfg.optimization.weight_initialize_coef / num_objects if num_objects else 0.0,
-                    dtype=torch.float32,
-                    device=self.device,
-                )
+        num_objects = encoder_conds["num_objects"]
+        self.ctx.params = nn.Parameter(
+            torch.full(
+                (self.num_inference_steps + 1, num_objects),
+                fill_value=self.cfg.optimization.weight_initialize_coef / num_objects if num_objects else 0.0,
+                dtype=torch.float32,
+                device=self.device,
             )
+        )
 
-            optimizer = optimizer_cls([self.ctx.params], **self.cfg.optimization.optimizer_kwargs)
-            scaler = torch.cuda.amp.GradScaler()
+        optimizer = optimizer_cls([self.ctx.params], **self.cfg.optimization.optimizer_kwargs)
+        with torch.set_grad_enabled(True): # be careful not to include the text encoder in the gradient computation
             for epoch in tqdm(range(self.cfg.optimization.num_steps), desc="Optimizing"):
+                optimizer.zero_grad()
                 denoised_latents, store_latents = self._denoise_latents(
                     latents = latents,
                     encoder_conds = encoder_conds,
                 )
                 images = self._decode_latents(denoised_latents)
-
-                optimizer.zero_grad()
                 loss = self.clip_loss(images, encoder_conds)
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
+
+                loss.backward()
+                optimizer.step()
 
                 if debug_flag == True:
                     pil_image = self.to_pil_image(images[0])
@@ -211,8 +208,8 @@ class AttnOptimSampler:
                         os.makedirs(Denoise_path, exist_ok=True)
                         pil_image.save(Denoise_path + "epoch%d_step%d.png"%(epoch, step))
 
-                torch.cuda.empty_cache()
-            self.ctx.parmas = None
+                # torch.cuda.empty_cache()
+        self.ctx.parmas = None
 
         return images
     
@@ -227,7 +224,7 @@ if __name__ == "__main__":
         cfg = OmegaConf.load("configs/default.yaml"),
         device = "cuda"
     )
-    images = sampler.sample(prompt="The silver bed was situated to the right of the white couch.")
+    images = sampler.sample(prompt="a bird lying above an elephant")
     pil_image = sampler.to_pil_image(images[0])
     file_name = f"test_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
     pil_image.save("outputs/" + file_name)

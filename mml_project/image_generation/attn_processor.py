@@ -46,10 +46,13 @@ class CustomAttnProcessor(AttnProcessor2_0):
             object_keys = [
                 key for key, value in encoder_hidden_states['object_pos'].items() if not isinstance(value, str)
             ]
+            # print("object_keys: ", object_keys)
             full_prompt = next(filter(lambda k: encoder_hidden_states['object_pos'][k] == 'global', encoder_hidden_states['object_pos'].keys()))
+            # print("full_prompt: ", full_prompt.size())
             extended_hidden_states = torch.cat(
                 [hidden_states[: 1]] + [hidden_states[1:]] * (len(object_keys) + 1)
             )
+            # print("extended_hidden_states: ", extended_hidden_states.size())
             extended_encoder_hidden_states = torch.cat(
                 [
                     encoder_hidden_states['text_embeddings']['<uncond>'],
@@ -57,6 +60,7 @@ class CustomAttnProcessor(AttnProcessor2_0):
                 ] +
                 [encoder_hidden_states['text_embeddings'][key] for key in object_keys]
             )
+            # print("extended_encoder_hidden_states: ", extended_encoder_hidden_states.size())
             masks = torch.stack(
                 [
                     self._get_mask(hidden_states.shape[-2], center=None),
@@ -67,11 +71,11 @@ class CustomAttnProcessor(AttnProcessor2_0):
                     for key in object_keys
                 ]
             ) # 0 : not masked, 1 : masked
-
+            # print("masks: ", masks.size())
             attn_out = super().__call__(attn, extended_hidden_states, extended_encoder_hidden_states)
 
             ret = torch.zeros((2, attn_out.shape[1], attn_out.shape[2]), dtype=self.ctx.dtype, device=self.ctx.device) # unconditional and conditional
-
+            # print("ret: ", ret.size())
             masks = masks.to(self.ctx.dtype)
             ret[0] = attn_out[0]
             ret[1] = attn_out[1] + ((attn_out[2:] - attn_out[1].unsqueeze(0)) * (self.ctx.params[self.ctx.step_idx].unsqueeze(-1) * (1 - masks[2:])).unsqueeze(-1)).sum(dim=0)
