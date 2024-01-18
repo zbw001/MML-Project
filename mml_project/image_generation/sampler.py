@@ -184,6 +184,7 @@ class AttnOptimSampler:
             )
 
             optimizer = optimizer_cls([self.ctx.params], **self.cfg.optimization.optimizer_kwargs)
+            scaler = torch.cuda.amp.GradScaler()
             for epoch in tqdm(range(self.cfg.optimization.num_steps), desc="Optimizing"):
                 denoised_latents, store_latents = self._denoise_latents(
                     latents = latents,
@@ -193,8 +194,9 @@ class AttnOptimSampler:
 
                 optimizer.zero_grad()
                 loss = self.clip_loss(images, encoder_conds)
-                loss.backward()
-                optimizer.step()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
 
                 if debug_flag == True:
                     pil_image = self.to_pil_image(images[0])
@@ -225,7 +227,7 @@ if __name__ == "__main__":
         cfg = OmegaConf.load("configs/default.yaml"),
         device = "cuda"
     )
-    images = sampler.sample(prompt="an apple tree")
+    images = sampler.sample(prompt="The silver bed was situated to the right of the white couch.")
     pil_image = sampler.to_pil_image(images[0])
     file_name = f"test_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
     pil_image.save("outputs/" + file_name)

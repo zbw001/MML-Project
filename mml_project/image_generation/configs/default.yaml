@@ -12,8 +12,8 @@ optimization:
     lr: 0.005
 
 layout_predictor:
-  cfg_path: layout_predictor/configs/model/replicate.yaml
-  model_path: layout_predictor/checkpoints/epoch=68-step=4000.ckpt
+  cfg_path: ../layout_predictor/configs/model/replicate.yaml
+  model_path: ../layout_predictor/checkpoints/epoch=68-step=4000.ckpt
 
 loss:
   clip_model: openai/clip-vit-base-patch32
