@@ -83,7 +83,4 @@ class CLIPLoss(nn.Module):
                 )
                 loss_local += 1 - self.similarity_func(text_embeddings, image_embeddings)
         
-        print(f"Global loss: {loss_global}")
-        print(f"Local loss: {loss_local}")
-        import ipdb; ipdb.set_trace()
         return loss_global + loss_local * self.local_loss_coef

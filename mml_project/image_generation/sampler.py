@@ -25,10 +25,10 @@ class AttnOptimSampler:
         self.device = device
         self.cfg = cfg
         
-        self.unet = UNet2DConditionModel.from_pretrained(cfg.diffusion_model, subfolder="unet", revision=self.revision, torch_dtype=self.dtype).to(self.device)
-        self.tokenizer = CLIPTokenizer.from_pretrained(cfg.diffusion_model, subfolder="tokenizer", revision=self.revision, torch_dtype=self.dtype)
-        self.text_encoder = CLIPTextModel.from_pretrained(cfg.diffusion_model, subfolder="text_encoder", revision=self.revision, torch_dtype=self.dtype).to(self.device) # TODO: maybe fp32 is better for text encoder?
-        self.scheduler = PNDMScheduler.from_pretrained(cfg.diffusion_model, subfolder="scheduler", revision=self.revision)
+        self.unet = UNet2DConditionModel.from_pretrained(cfg.diffusion_model, subfolder="unet", torch_dtype=self.dtype).to(self.device)
+        self.tokenizer = CLIPTokenizer.from_pretrained(cfg.diffusion_model, subfolder="tokenizer", torch_dtype=self.dtype)
+        self.text_encoder = CLIPTextModel.from_pretrained(cfg.diffusion_model, subfolder="text_encoder", torch_dtype=self.dtype).to(self.device) # TODO: maybe fp32 is better for text encoder?
+        self.scheduler = PNDMScheduler.from_pretrained(cfg.diffusion_model, subfolder="scheduler")
 
         self.vae = AutoencoderKL.from_pretrained(cfg.diffusion_model, subfolder="vae", torch_dtype=torch.float32).to(self.device) # vae is always fp32 for numerical stability
 
@@ -204,7 +204,7 @@ if __name__ == "__main__":
         cfg = OmegaConf.load("configs/default.yaml"),
         device = "cuda"
     )
-    images = sampler.sample(prompt="a car was parked to the left of the elephant")
+    images = sampler.sample(prompt="an apple tree")
     pil_image = sampler.to_pil_image(images[0])
     file_name = f"test_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
     pil_image.save("outputs/" + file_name)
