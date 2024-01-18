@@ -26,7 +26,7 @@ class CLIPLoss(nn.Module):
         self.local_loss_coef = loss_cfg.local_loss_coef
 
     def encode_images(self, images: torch.Tensor):
-        assert images.dtype == self.dtype
+        # assert images.dtype == self.dtype
         _, channels, height, width = images.shape
         assert channels == 3, "images must have 3 channels"
         normalized_images = (images - self.mean) / self.std
@@ -82,4 +82,8 @@ class CLIPLoss(nn.Module):
                     ]
                 )
                 loss_local += 1 - self.similarity_func(text_embeddings, image_embeddings)
+        
+        print(f"Global loss: {loss_global}")
+        print(f"Local loss: {loss_local}")
+        import ipdb; ipdb.set_trace()
         return loss_global + loss_local * self.local_loss_coef

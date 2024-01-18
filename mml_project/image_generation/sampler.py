@@ -11,10 +11,13 @@ from mml_project.image_generation.attn_processor import CustomAttnProcessor, Att
 from mml_project.image_generation.loss import CLIPLoss
 from mml_project.layout_predictor.layout_predictor import LayoutPredictor
 from torch.utils.checkpoint import checkpoint
+from diffusers.models import UNet2DConditionModel, AutoencoderKL
+from transformers import CLIPTextModel, CLIPTokenizer
+from diffusers.schedulers import PNDMScheduler
 
 class AttnOptimSampler:
-    revision = "fp16"
-    dtype = torch.float16
+    revision = "main"
+    dtype = torch.float32
     width = 512
     height = 512
 
@@ -22,15 +25,21 @@ class AttnOptimSampler:
         self.device = device
         self.cfg = cfg
         
-        pipeline = StableDiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", revision=self.revision, torch_dtype=self.dtype).to(self.device)
+        self.unet = UNet2DConditionModel.from_pretrained(cfg.diffusion_model, subfolder="unet", revision=self.revision, torch_dtype=self.dtype).to(self.device)
+        self.tokenizer = CLIPTokenizer.from_pretrained(cfg.diffusion_model, subfolder="tokenizer", revision=self.revision, torch_dtype=self.dtype)
+        self.text_encoder = CLIPTextModel.from_pretrained(cfg.diffusion_model, subfolder="text_encoder", revision=self.revision, torch_dtype=self.dtype).to(self.device) # TODO: maybe fp32 is better for text encoder?
+        self.scheduler = PNDMScheduler.from_pretrained(cfg.diffusion_model, subfolder="scheduler", revision=self.revision)
 
+        self.vae = AutoencoderKL.from_pretrained(cfg.diffusion_model, subfolder="vae", torch_dtype=torch.float32).to(self.device) # vae is always fp32 for numerical stability
+
+        self.clip_loss = CLIPLoss(self.cfg, dtype=torch.float32)
+        self.clip_loss.to(self.device)
+        
         self.layout_predictor = LayoutPredictor(
             cfg_path = self.cfg.layout_predictor.cfg_path,
             model_path = self.cfg.layout_predictor.model_path,
             device = self.device
         )
-
-        self.unet, self.vae, self.tokenizer, self.text_encoder, self.scheduler = pipeline.unet, pipeline.vae, pipeline.tokenizer, pipeline.text_encoder, pipeline.scheduler
 
         self.cfg = cfg
         self.guidance_scale = cfg.guidance_scale
@@ -41,8 +50,6 @@ class AttnOptimSampler:
         self.ctx.dtype = self.dtype
         self.ctx.device = self.device
         self.ctx.radius = self.radius
-        self.clip_loss = CLIPLoss(self.cfg, dtype=self.dtype)
-        self.clip_loss.to(self.device)
 
         self._setup_attention_control()
         self._freeze_modules() # The parameters to be optimized are not in the modules
@@ -112,6 +119,7 @@ class AttnOptimSampler:
         return latents
 
     def _decode_latents(self, latents: torch.Tensor):
+        latents = latents.to(torch.float32)
         batch_size = latents.shape[0]
         assert batch_size == 1
         latents = 1 / 0.18215 * latents
@@ -156,13 +164,13 @@ class AttnOptimSampler:
         else:
             raise ValueError(f'Unsupported optimizer type: {self.cfg.optimization.optimizer_type}')
 
-        with torch.set_grad_enabled(True): # be careful not to include the text encoder in the gradient computation
+        with torch.set_grad_enabled(True), torch.cuda.amp.autocast(): # be careful not to include the text encoder in the gradient computation
             num_objects = encoder_conds["num_objects"]
             self.ctx.params = nn.Parameter(
                 torch.full(
                     (self.num_inference_steps + 1, num_objects),
                     fill_value=self.cfg.optimization.weight_initialize_coef / num_objects if num_objects else 0.0,
-                    dtype=self.dtype,
+                    dtype=torch.float32,
                     device=self.device,
                 )
             )

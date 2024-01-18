@@ -31,7 +31,7 @@ class CustomAttnProcessor(AttnProcessor2_0):
         mask = torch.zeros((w, w), dtype=torch.bool, device=self.ctx.device)
 
         x_diff = (torch.arange(w, dtype=self.ctx.dtype, device=self.ctx.device) / w - center[0]) ** 2
-        y_diff = (torch.arange(w, dtype=self.ctx.dtype, device=self.ctx.device) / w - center[1]) ** 2 # TODO: 检查最终图像的位置s是否符合预期
+        y_diff = (torch.arange(w, dtype=self.ctx.dtype, device=self.ctx.device) / w - center[1]) ** 2 # TODO: check the generated image to see if this is correct
         dist_mat = torch.sqrt(x_diff.unsqueeze(0) + y_diff.unsqueeze(1)) # TODO: check if this is correct
         
         mask[dist_mat > self.ctx.radius] = 1
