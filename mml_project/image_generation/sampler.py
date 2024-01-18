@@ -10,6 +10,7 @@ from datetime import datetime
 from mml_project.image_generation.attn_processor import CustomAttnProcessor, AttnContext
 from mml_project.image_generation.loss import CLIPLoss
 from mml_project.layout_predictor.layout_predictor import LayoutPredictor
+from torch.utils.checkpoint import checkpoint
 
 class AttnOptimSampler:
     revision = "fp16"
@@ -30,8 +31,6 @@ class AttnOptimSampler:
         )
 
         self.unet, self.vae, self.tokenizer, self.text_encoder, self.scheduler = pipeline.unet, pipeline.vae, pipeline.tokenizer, pipeline.text_encoder, pipeline.scheduler
-
-        self.unet.enable_gradient_checkpointing()
 
         self.cfg = cfg
         self.guidance_scale = cfg.guidance_scale
@@ -84,17 +83,31 @@ class AttnOptimSampler:
         self.scheduler.set_timesteps(self.num_inference_steps)
         latents = latents * self.scheduler.init_noise_sigma
 
-        for i, t in enumerate(tqdm(self.scheduler.timesteps)):
-            unet_input = torch.cat([latents] * 2) # conditional and unconditional
-            unet_input = self.scheduler.scale_model_input(unet_input, timestep=t)
+        block_size = self.cfg.optimization.gradient_checkpointing_block_size
 
-            self.ctx.set_step_idx(i)
-            unet_output = self.unet(unet_input, t, encoder_hidden_states=encoder_conds).sample
-            self.ctx.set_step_idx(None)
+        def denoise_steps(latents, idxs, timesteps):
+            for i, t in zip(idxs, timesteps):
+                unet_input = torch.cat([latents] * 2) # conditional and unconditional
+                unet_input = self.scheduler.scale_model_input(unet_input, timestep=t)
 
-            unconditioned_noise, conditioned_noise = unet_output.chunk(2)
-            noise_pred = unconditioned_noise + self.guidance_scale * (conditioned_noise - unconditioned_noise)
-            latents = self.scheduler.step(noise_pred, t, latents).prev_sample
+                self.ctx.set_step_idx(i)
+                unet_output = self.unet(unet_input, t, encoder_hidden_states=encoder_conds).sample
+                self.ctx.set_step_idx(None)
+
+                unconditioned_noise, conditioned_noise = unet_output.chunk(2)
+                noise_pred = unconditioned_noise + self.guidance_scale * (conditioned_noise - unconditioned_noise)
+                latents = self.scheduler.step(noise_pred, t, latents).prev_sample
+            return latents
+
+        pbar = tqdm(total=len(self.scheduler.timesteps), desc="Denoising")
+
+        for start_idx in range(0, len(self.scheduler.timesteps), block_size):
+            end_idx = min(start_idx + block_size, len(self.scheduler.timesteps))
+            timesteps = self.scheduler.timesteps[start_idx : end_idx]
+            latents = checkpoint(denoise_steps, latents, range(start_idx, end_idx), timesteps, use_reentrant=False)
+            pbar.update(len(timesteps))
+
+        pbar.close()
 
         return latents
 

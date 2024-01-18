@@ -1,10 +1,11 @@
 radius: 0.2
-num_inference_steps: 20
+num_inference_steps: 50
 guidance_scale: 7.5
 
 optimization:
   num_steps: 3
   weight_initialize_coef: 5.0
+  gradient_checkpointing_block_size: 1
   optimizer_type: Adam
   optimizer_kwargs:
     lr: 0.005
