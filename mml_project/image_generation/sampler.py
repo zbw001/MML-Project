@@ -15,6 +15,9 @@ from diffusers.models import UNet2DConditionModel, AutoencoderKL
 from transformers import CLIPTextModel, CLIPTokenizer
 from diffusers.schedulers import PNDMScheduler
 
+# path to output debug info
+debug_path = "image_generation/debug/"
+
 class AttnOptimSampler:
     revision = "main"
     dtype = torch.float32
@@ -152,7 +155,7 @@ class AttnOptimSampler:
             "num_objects": num_objects
         }
     
-    def sample(self, prompt: str, seed: int = 42):
+    def sample(self, prompt: str, seed: int = 42, debug_flag: bool = False):
         encoder_conds = self._prepare_conditions(prompt=prompt)
 
         latents = self._gen_latents(batch_size=1, seed=seed)
