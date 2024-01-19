@@ -1,22 +1,10 @@
-import functools
+from mml_project.image_generation.context import AttnOptimContext
 import math
 from diffusers.models.attention_processor import AttnProcessor2_0, Attention
 import torch
-from functools import partial
-import numpy as np
-from typing import List
-from PIL import Image
-from typing import Union, Optional, Callable, Tuple
-
-class AttnContext:
-    def __init__(self):
-        self.step_idx = None
     
-    def set_step_idx(self, step_idx: Optional[int]):
-        self.step_idx = step_idx
-
 class CustomAttnProcessor(AttnProcessor2_0):
-    def __init__(self, name: str, ctx: AttnContext): 
+    def __init__(self, name: str, ctx: AttnOptimContext): 
         super().__init__()
         self.name = name
         self.ctx = ctx
@@ -38,6 +26,7 @@ class CustomAttnProcessor(AttnProcessor2_0):
         return mask.view(-1)
 
     def __call__(self, attn: Attention, hidden_states, encoder_hidden_states=None, attention_mask=None):
+        assert attention_mask is None
         cross_attention = encoder_hidden_states is not None
         if not cross_attention:
             return super().__call__(attn, hidden_states, encoder_hidden_states, attention_mask)
@@ -46,13 +35,10 @@ class CustomAttnProcessor(AttnProcessor2_0):
             object_keys = [
                 key for key, value in encoder_hidden_states['object_pos'].items() if not isinstance(value, str)
             ]
-            # print("object_keys: ", object_keys)
             full_prompt = next(filter(lambda k: encoder_hidden_states['object_pos'][k] == 'global', encoder_hidden_states['object_pos'].keys()))
-            # print("full_prompt: ", full_prompt.size())
             extended_hidden_states = torch.cat(
                 [hidden_states[: 1]] + [hidden_states[1:]] * (len(object_keys) + 1)
             )
-            # print("extended_hidden_states: ", extended_hidden_states.size())
             extended_encoder_hidden_states = torch.cat(
                 [
                     encoder_hidden_states['text_embeddings']['<uncond>'],
@@ -60,24 +46,18 @@ class CustomAttnProcessor(AttnProcessor2_0):
                 ] +
                 [encoder_hidden_states['text_embeddings'][key] for key in object_keys]
             )
-            # print("extended_encoder_hidden_states: ", extended_encoder_hidden_states.size())
+            attn_out = super().__call__(attn, extended_hidden_states, extended_encoder_hidden_states, attention_mask)
+
+            ret = torch.zeros((2, attn_out.shape[1], attn_out.shape[2]), dtype=self.ctx.dtype, device=self.ctx.device) # unconditional and conditional
+
             masks = torch.stack(
-                [
-                    self._get_mask(hidden_states.shape[-2], center=None),
-                    self._get_mask(hidden_states.shape[-2], center=None),
-                ] + 
                 [
                     self._get_mask(hidden_states.shape[-2], center=encoder_hidden_states['object_pos'][key])
                     for key in object_keys
                 ]
-            ) # 0 : not masked, 1 : masked
-            # print("masks: ", masks.size())
-            attn_out = super().__call__(attn, extended_hidden_states, extended_encoder_hidden_states)
+            ).to(self.ctx.dtype) # 0 : not masked, 1 : masked
 
-            ret = torch.zeros((2, attn_out.shape[1], attn_out.shape[2]), dtype=self.ctx.dtype, device=self.ctx.device) # unconditional and conditional
-            # print("ret: ", ret.size())
-            masks = masks.to(self.ctx.dtype)
             ret[0] = attn_out[0]
-            ret[1] = attn_out[1] + ((attn_out[2:] - attn_out[1].unsqueeze(0)) * (self.ctx.params[self.ctx.step_idx].unsqueeze(-1) * (1 - masks[2:])).unsqueeze(-1)).sum(dim=0)
+            ret[1] = attn_out[1] + ((attn_out[2:] - attn_out[1].unsqueeze(0)) * (encoder_hidden_states["params"].unsqueeze(-1) * (1 - masks)).unsqueeze(-1)).sum(dim = 0)
             return ret
             

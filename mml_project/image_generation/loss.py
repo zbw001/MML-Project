@@ -62,7 +62,11 @@ class CLIPLoss(nn.Module):
                 else :
                     continue
             else:
-                text_embeddings = self.encode_text(k)
+                # match the original implementation
+                object_name = k.lower()
+                object_name = object_name.replace("the ", "")
+
+                text_embeddings = self.encode_text("A photo of " + object_name)
                 height, width = images.shape[-2:]
 
                 pos = torch.tensor(v, dtype=self.dtype, device=self.device)
@@ -82,5 +86,4 @@ class CLIPLoss(nn.Module):
                     ]
                 )
                 loss_local += 1 - self.similarity_func(text_embeddings, image_embeddings)
-        
         return loss_global + loss_local * self.local_loss_coef
