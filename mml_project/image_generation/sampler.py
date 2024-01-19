@@ -51,6 +51,8 @@ class AttnOptimSampler:
         self.num_inference_steps = cfg.num_inference_steps
         self.radius = cfg.radius
 
+        self.reg_coef = cfg.optimization.reg_coef
+
         self.save_interval = cfg.save_interval
 
         self.ctx = AttnOptimContext(
@@ -176,7 +178,7 @@ class AttnOptimSampler:
         self.ctx.info.clear()
         encoder_conds = self._prepare_conditions(prompt=prompt)
 
-        latents = self._gen_latents(batch_size=1, seed=seed)
+        
         optimizer_cls = None
         if self.cfg.optimization.optimizer_type == "Adam":
             optimizer_cls = torch.optim.Adam
@@ -199,7 +201,11 @@ class AttnOptimSampler:
 
         
         self.ctx.info["intermediate_images"] = []
-        optimizer = optimizer_cls([self.ctx.params], **self.cfg.optimization.optimizer_kwargs)
+        
+        org_latents = self._gen_latents(batch_size=1, seed=seed)
+        latents = nn.Parameter(org_latents)
+
+        optimizer = optimizer_cls([self.ctx.params, latents], **self.cfg.optimization.optimizer_kwargs)
         with torch.set_grad_enabled(True): # be careful not to include the text encoder in the gradient computation
             for epoch in tqdm(range(1, self.cfg.optimization.num_steps + 1), desc="Optimizing"):
                 self.ctx.epoch = epoch
@@ -209,7 +215,9 @@ class AttnOptimSampler:
                     encoder_conds = encoder_conds,
                 )
                 images = self._decode_latents(denoised_latents)
-                loss = self.clip_loss(images, encoder_conds)
+                loss_clip = self.clip_loss(images, encoder_conds)
+                loss_reg = latents.pow(2).mean()
+                loss = loss_clip + self.reg_coef * loss_reg
 
                 if loss.requires_grad:
                     loss.backward()
@@ -219,7 +227,7 @@ class AttnOptimSampler:
                 else :
                     rich.print("[red]Warning: loss does not require grad[/red]")
                     break
-                rich.print(f"[green]Loss: {loss.item():.4f}[/green]")
+                rich.print(f"[green]Loss: {loss.item():.4f} = {loss_clip.item():.4f} + {self.reg_coef} * {loss_reg.item():.4f}[/green]")
         self.ctx.parmas = None
 
         if self.debug:
@@ -281,6 +289,6 @@ if __name__ == "__main__":
         debug = True
     )
     # images = sampler.sample(prompt="a bird flying above an elephant")
-    image = sampler.sample(prompt="The blue potted plant was perched atop the white chair.")
+    image = sampler.sample(prompt="green house")
     save_path = f"outputs/test_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     sampler.save_info(save_path)

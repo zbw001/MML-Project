@@ -86,4 +86,5 @@ class CLIPLoss(nn.Module):
                     ]
                 )
                 loss_local += 1 - self.similarity_func(text_embeddings, image_embeddings)
+
         return loss_global + loss_local * self.local_loss_coef

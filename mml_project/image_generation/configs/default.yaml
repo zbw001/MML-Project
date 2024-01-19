@@ -5,13 +5,14 @@ diffusion_model: runwayml/stable-diffusion-v1-5
 save_interval: 10 # Save every 5 diffusion steps
 
 optimization:
-  num_steps: 1
-  weight_initialize_coef: 5.0
+  num_steps: 4
+  reg_coef: 1.0
+  weight_initialize_coef: 1.0
   gradient_checkpointing_block_size: 1
   optimizer_type: Adam
   optimizer_kwargs:
     lr: 0.05
-  gradient_clipping: 1.0
+  gradient_clipping: 0.5
   clip_range: [-1, 2.5]
 
 layout_predictor:

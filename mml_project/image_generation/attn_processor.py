@@ -49,7 +49,7 @@ class CustomAttnProcessor(AttnProcessor2_0):
             attn_out = super().__call__(attn, extended_hidden_states, extended_encoder_hidden_states, attention_mask)
 
             ret = torch.zeros((2, attn_out.shape[1], attn_out.shape[2]), dtype=self.ctx.dtype, device=self.ctx.device) # unconditional and conditional
-
+            
             masks = torch.stack(
                 [
                     self._get_mask(hidden_states.shape[-2], center=encoder_hidden_states['object_pos'][key])
@@ -59,5 +59,6 @@ class CustomAttnProcessor(AttnProcessor2_0):
 
             ret[0] = attn_out[0]
             ret[1] = attn_out[1] + ((attn_out[2:] - attn_out[1].unsqueeze(0)) * (encoder_hidden_states["params"].unsqueeze(-1) * (1 - masks)).unsqueeze(-1)).sum(dim = 0)
+            # ret[1] = ((attn_out[2:]) * (encoder_hidden_states["params"].unsqueeze(-1) * (1 - masks)).unsqueeze(-1)).sum(dim = 0)
             return ret
             
