@@ -1,17 +1,17 @@
 pretrained_weights: null
-gmm_loss_coef: 0.1 # match original implementation
+gmm_loss_coef: 1.0
 relative_loss_coef: 1.0
 
 batch_size: 128
 
 lightning_trainer:
     # max_epochs: 60
-    max_steps: 4000
+    max_steps: 8000
     log_every_n_steps: 10
 
 optimize:
     encoder:
-        optimizer_type: Adam # Maybe AdamW?????
+        optimizer_type: AdamW # Maybe AdamW?????
         weight_decay: 0.01
         scheduler_type: BertScheduler
         warmup_ratio: 0

@@ -13,7 +13,7 @@ def build_optimizer_and_scheduler(optimize_cfg: DictConfig, hidden_size: int, ma
 
     if optimize_cfg.optimizer_type == "Adam":
         optimizer = torch.optim.Adam(parameters, lr=initial_lr, weight_decay=optimize_cfg.weight_decay)
-    elif optimize_cfg.optimzier_type == "AdamW":
+    elif optimize_cfg.optimizer_type == "AdamW":
         optimizer = torch.optim.AdamW(parameters, lr=initial_lr, weight_decay=optimize_cfg.weight_decay)
 
     lr_func = None
