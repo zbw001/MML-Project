@@ -78,7 +78,7 @@ class LayoutPredictor:
             word_index = chunk.root.i
             if noun_phrases is not None:
                 for phrase in noun_phrases:
-                    if phrase in chunk.text:
+                    if phrase.lower() in chunk.text.lower():
                         chunks.append(chunk)
                         pos.append(word_index)
                         break

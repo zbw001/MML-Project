@@ -250,7 +250,7 @@ class AttnOptimSampler:
                 else :
                     rich.print("[red]Warning: loss does not require grad[/red]")
                     break
-                rich.print(f"[green]Loss: {self.clip_loss_coef} * {loss.item():.4f} = {loss_clip.item():.4f} + {self.attention_loss_coef} * {attention_map_loss:.4f}[/green]")
+                rich.print(f"[green]Loss: {loss.item():.4f} = {self.clip_loss_coef} * {loss_clip.item():.4f} + {self.attention_loss_coef} * {attention_map_loss:.4f}[/green]")
         self.ctx.parmas = None
 
         self.ctx.info["final_image"] = self.to_pil_image(images[0].detach())
