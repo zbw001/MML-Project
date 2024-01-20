@@ -34,6 +34,7 @@ class LayoutPredictor:
             raise FileNotFoundError(f"Model file not found: {model_path}")
         self.device = device
         self.engine = inflect.engine()
+        self._load_word_set()
 
         model_cfg = OmegaConf.load(cfg_path)
         self.model = Text2Coord(model_cfg)
@@ -42,8 +43,19 @@ class LayoutPredictor:
         for k, v in checkpoint['state_dict'].items():
             if k.startswith('model.'):
                 state_dict_to_load[k[6:]] = v
+            elif k.startswith('encoder.model.encoder.sentence_encoder'):
+                state_dict_to_load[k] = v
+            elif k.startswith('bbox_head.Decoder'):
+                if k.startswith('bbox_head.Decoder.output_Layer'):
+                    state_dict_to_load[k.replace('bbox_head.Decoder', 'coord_head')] = v
+                elif k.startswith('bbox_head.Decoder.box_predictor.xy_bivariate'):
+                    state_dict_to_load[k.replace('bbox_head.Decoder', 'coord_head').replace('xy_bivariate', 'fc')] = v
 
-        self.model.load_state_dict(state_dict_to_load, strict=True)
+        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict_to_load, strict=False)
+        for key in missing_keys:
+            print(f"Missing key: {key}")
+        for key in unexpected_keys:
+            print(f"Unexpected key: {key}")
         self.model.to(self.device)
         self.model.eval()
 
@@ -51,6 +63,28 @@ class LayoutPredictor:
         self.stoplist = set(stopwords.words("english")).union(
             self.nlp.Defaults.stop_words
         )
+
+    def _check_in_mscoco(self, noun_pharse: str) -> bool:
+        for each_cate in self.word_set:
+            if each_cate in noun_pharse:
+                return True
+        return False
+
+    def _load_word_set(self) -> None:
+        self.word_set = {}
+        with open(str(DATA_PATH / 'coco' / 'category_dict.pkl'), 'rb') as f:
+            all_categories = pickle.load(f)
+        for each in all_categories:
+            self.word_set[each] = [each.lower()]
+        for each in self.word_set:
+            synonyms = []
+            for syn in wordnet.synsets(each, pos='n'):
+                for l in syn.lemmas():
+                    synonyms.append(l.name().lower())
+            synonyms.append(self.engine.plural(each))
+            synonyms = set(synonyms)
+            for each_syn in synonyms:
+                self.word_set[each].append(each_syn)
 
     @torch.no_grad()
     def inference_sentence(self, sentence: str, noun_phrases=None):
@@ -116,13 +150,13 @@ class LayoutPredictor:
         
         key_noun = chunk.root.text
         key_noun = key_noun.lower()
-        return self._check_word(key_noun, sentence)
+        return self._check_in_mscoco(chunk.text) or self._check_word(key_noun, sentence)
     
 # debug
 if __name__ == "__main__":
     layout_predictor = LayoutPredictor(
         cfg_path=CONFIG_PATH / "model" / "replicate.yaml",
-        model_path=CHECKPOINT_PATH / "epoch=68-step=4000.ckpt"
+        model_path=CHECKPOINT_PATH / "checkpoint_90_0.0.pth"
     )
     print(layout_predictor.inference_sentence("a bed room with a bed and a large window"))
     print(layout_predictor.inference_sentence("The silver bed was situated to the right of the white couch."))
