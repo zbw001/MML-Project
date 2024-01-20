@@ -15,11 +15,13 @@ from torch.utils.checkpoint import checkpoint
 from diffusers.models import UNet2DConditionModel, AutoencoderKL
 from transformers import CLIPTextModel, CLIPTokenizer
 from diffusers.schedulers import PNDMScheduler
+import shutil
 import cv2
 import json
 import rich
 import re
 from typing import List
+import argparse
 
 class AttnOptimSampler:
     revision = "main"
@@ -328,11 +330,20 @@ class AttnOptimSampler:
             cv2.imwrite(str(path / "final_image_with_caption.png"), final_image_with_caption)
 
 if __name__ == "__main__":
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--config", type=str, default="configs/default.yaml")
+    argparser.add_argument("--prompt", type=str, default="A red apple sits on a white table to the left of a brass lamp")
+    argparser.add_argument("--noun_phrases", type=str, default=None)
+    argparser.add_argument("--seed", type=int, default=42)
+    argparser.add_argument("--debug", action="store_true")
+    args = argparser.parse_args()
+
     sampler = AttnOptimSampler(
-        cfg = OmegaConf.load("configs/default.yaml"),
+        cfg = OmegaConf.load(args.config),
         device = "cuda",
-        debug = True
+        debug = args.debug
     )
-    image = sampler.sample(prompt="A red apple sits on a white table to the left of a brass lamp")
+    image = sampler.sample(prompt=args.prompt, seed=args.seed, noun_phrases=args.noun_phrases)
     save_path = f"outputs/test_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
     sampler.save_info(save_path)
+    shutil.copy(args.config, save_path) 

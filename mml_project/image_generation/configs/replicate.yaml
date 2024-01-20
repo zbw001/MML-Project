@@ -1,0 +1,24 @@
+radius: 0.2
+num_inference_steps: 50
+guidance_scale: 7.5
+diffusion_model: runwayml/stable-diffusion-v1-5
+save_interval: 10 # Save every 5 diffusion steps
+
+optimization:
+  num_steps: 20
+  clip_loss_coef: 1.0
+  attention_loss_coef: 0.0
+  weight_initialize_coef: 1.0
+  gradient_checkpointing_block_size: 1
+  optimizer_type: Adam
+  optimizer_kwargs:
+    lr: 0.05
+  gradient_clipping: 0.3
+  clip_range: [-1, 2.5]
+
+layout_predictor:
+  cfg_path: ../layout_predictor/configs/model/replicate.yaml
+  model_path: ../layout_predictor/checkpoints/epoch=68-step=4000.ckpt
+loss:
+  clip_model: openai/clip-vit-base-patch32
+  local_loss_coef: 5.0
