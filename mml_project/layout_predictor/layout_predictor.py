@@ -9,6 +9,7 @@ from mml_project.layout_predictor.paths import DATA_PATH, CHECKPOINT_PATH, CONFI
 from nltk.corpus import stopwords
 from fairseq.models.roberta import alignment_utils
 from mml_project.layout_predictor.model.text2coord import Text2Coord
+from nltk.wsd import lesk
 
 import nltk
 import spacy
@@ -19,9 +20,9 @@ def setup_nltk_and_spacy():
     nltk.download('wordnet')
     nltk.download('stopwords')
     try:
-        spacy.load("en_core_web_sm")
+        spacy.load("en_core_web_md")
     except:
-        spacy.cli.download("en_core_web_sm")
+        spacy.cli.download("en_core_web_md")
 
 setup_nltk_and_spacy()
 
@@ -33,9 +34,7 @@ class LayoutPredictor:
             raise FileNotFoundError(f"Model file not found: {model_path}")
         self.device = device
         self.engine = inflect.engine()
-        self.word_set = {}
 
-        self._load_word_set()
         model_cfg = OmegaConf.load(cfg_path)
         self.model = Text2Coord(model_cfg)
         checkpoint = torch.load(model_path)
@@ -48,13 +47,13 @@ class LayoutPredictor:
         self.model.to(self.device)
         self.model.eval()
 
-        self.nlp = spacy.load("en_core_web_sm")
+        self.nlp = spacy.load("en_core_web_md")
         self.stoplist = set(stopwords.words("english")).union(
             self.nlp.Defaults.stop_words
         )
 
     @torch.no_grad()
-    def inference_sentence(self, sentence: str) -> None:
+    def inference_sentence(self, sentence: str, noun_phrases=None):
         def check_relation(sentence, object_index):
             bpe_toks = self.model.encoder.encode(sentence)
             padding = torch.ones(128 - bpe_toks.shape[0]).int()
@@ -74,15 +73,18 @@ class LayoutPredictor:
         sentence = sentence.rstrip()
         sentence = sentence.lstrip()
         doc = self.nlp(sentence)
-        pos = []
+        chunks, pos = [], []
         for chunk in doc.noun_chunks:
-            full_noun = chunk.text
-            if full_noun.lower() in self.stoplist:
-                continue
-            key_noun = chunk.root.text
             word_index = chunk.root.i
-            key_noun = key_noun.lower()
-            if self._check_in_mscoco(full_noun):
+            if noun_phrases is not None:
+                for phrase in noun_phrases:
+                    if phrase in chunk.text:
+                        chunks.append(chunk)
+                        pos.append(word_index)
+                        break
+                continue
+            if self._check_chunk(chunk, sentence):
+                chunks.append(chunk)
                 pos.append(word_index)
         try:
             gmm, alignment = check_relation(sentence, pos)
@@ -91,42 +93,38 @@ class LayoutPredictor:
         index = 0
         print("Sentence: %s"%(sentence))
         results = {}
-        for chunk in doc.noun_chunks:
-            if self._check_in_mscoco(chunk.text):
-                result_index = alignment[pos[index]][0]
-                x, y = gmm[result_index].sample()
-                print("%s position: (%.3f, %.3f)" % (chunk.text, x, y))
-                results[chunk.text] = [x.item(), y.item()]
-                index += 1
+        for chunk, p in zip(chunks, pos):
+            result_index = alignment[p][0]
+            x, y = gmm[result_index].sample()
+            print("%s position: (%.3f, %.3f)" % (chunk.text, x, y))
+            results[chunk.text] = [x.item(), y.item()]
+            index += 1
         return results
 
-    def _check_in_mscoco(self, noun_pharse: str) -> bool:
-        for each_cate in self.word_set:
-            if each_cate in noun_pharse:
-                return True
+    def _check_word(self, word, sentence):
+        synset = lesk(sentence, word, 'n')
+        hyper = lambda s: s.hypernyms()
+        hypernym_chain = list(synset.closure(hyper))
+        if wordnet.synset('object.n.01') in hypernym_chain:
+            return True
         return False
 
-    def _load_word_set(self) -> None:
-        with open(str(DATA_PATH / 'coco' / 'category_dict.pkl'), 'rb') as f:
-            all_categories = pickle.load(f)
-        for each in all_categories:
-            self.word_set[each] = [each.lower()]
-        for each in self.word_set:
-            synonyms = []
-            for syn in wordnet.synsets(each, pos='n'):
-                for l in syn.lemmas():
-                    synonyms.append(l.name().lower())
-            synonyms.append(self.engine.plural(each))
-            synonyms = set(synonyms)
-            for each_syn in synonyms:
-                self.word_set[each].append(each_syn)
-
+    def _check_chunk(self, chunk, sentence):
+        full_noun = chunk.text
+        if full_noun.lower() in self.stoplist:
+            return False
+        
+        key_noun = chunk.root.text
+        key_noun = key_noun.lower()
+        return self._check_word(key_noun, sentence)
+    
 # debug
 if __name__ == "__main__":
     layout_predictor = LayoutPredictor(
         cfg_path=CONFIG_PATH / "model" / "replicate.yaml",
         model_path=CHECKPOINT_PATH / "epoch=68-step=4000.ckpt"
     )
+    print(layout_predictor.inference_sentence("a bed room with a bed and a large window"))
     print(layout_predictor.inference_sentence("The silver bed was situated to the right of the white couch."))
     print(layout_predictor.inference_sentence("a bed room with a bed and a large window"))
     print(layout_predictor.inference_sentence("an apple on the left of a table"))

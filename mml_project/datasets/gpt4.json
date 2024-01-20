@@ -1,0 +1,143 @@
+[
+    {
+        "sentence": "A red apple sits on a white table to the left of a brass lamp",
+        "noun_phrases": [
+            "red apple",
+            "white table",
+            "brass lamp"
+        ]
+    },
+    {
+        "sentence": "A blue mug on a wooden desk in front of a stack of colorful papers",
+        "noun_phrases": [
+            "blue mug",
+            "wooden desk",
+            "colorful papers"
+        ]
+    },
+    {
+        "sentence": "A green book open under a white lamp with a bronze clock next to it",
+        "noun_phrases": [
+            "green book",
+            "white lamp",
+            "bronze clock"
+        ]
+    },
+    {
+        "sentence": "A black bicycle leaning against a red brick wall near a potted fern",
+        "noun_phrases": [
+            "black bicycle",
+            "red brick wall",
+            "potted fern"
+        ]
+    },
+    {
+        "sentence": "A brown teddy bear on a pink cushion partially hidden by a glass vase with yellow tulips",
+        "noun_phrases": [
+            "brown teddy bear",
+            "pink cushion",
+            "glass vase",
+            "yellow tulips"
+        ]
+    },
+    {
+        "sentence": "Red high-heeled shoes under a silver coat rack beside a blue umbrella",
+        "noun_phrases": [
+            "red high-heeled shoes",
+            "silver coat rack",
+            "blue umbrella"
+        ]
+    },
+    {
+        "sentence": "An orange typewriter on the edge of a dark wooden table with a stack of white paper to its left",
+        "noun_phrases": [
+            "orange typewriter",
+            "dark wooden table",
+            "white paper"
+        ]
+    },
+    {
+        "sentence": "Yellow pencil sharpener on a blue book next to a round, white clock",
+        "noun_phrases": [
+            "yellow pencil sharpener",
+            "blue book",
+            "white clock"
+        ]
+    },
+    {
+        "sentence": "Silver laptop open beside a black coffee mug on a gray desk mat",
+        "noun_phrases": [
+            "silver laptop",
+            "black coffee mug",
+            "gray desk mat"
+        ]
+    },
+    {
+        "sentence": "Green potted plant in front of a small, rectangular picture frame on a wooden shelf",
+        "noun_phrases": [
+            "green potted plant",
+            "rectangular picture frame",
+            "wooden shelf"
+        ]
+    },
+    {
+        "sentence": "Orange basketball on shiny, polished floor to the left of white sneakers",
+        "noun_phrases": [
+            "orange basketball",
+            "polished floor",
+            "white sneakers"
+        ]
+    },
+    {
+        "sentence": "Soft, purple scarf draped over a brown leather chair near a small, gold table lamp",
+        "noun_phrases": [
+            "purple scarf",
+            "brown leather chair",
+            "gold table lamp"
+        ]
+    },
+    {
+        "sentence": "Clear glass bowl filled with red and green apples on a marble countertop near a stainless steel toaster",
+        "noun_phrases": [
+            "glass bowl",
+            "red apples",
+            "green apples",
+            "marble countertop",
+            "stainless steel toaster"
+        ]
+    },
+    {
+        "sentence": "Blue backpack leaning against a tall, beige locker door beside a red water bottle",
+        "noun_phrases": [
+            "blue backpack",
+            "beige locker door",
+            "red water bottle"
+        ]
+    },
+    {
+        "sentence": "Black and white striped cushion on a red armchair next to a low, round, glass-top coffee table",
+        "noun_phrases": [
+            "striped cushion",
+            "red armchair",
+            "glass-top coffee table"
+        ]
+    },
+    {
+        "sentence": "Wooden cutting board with a loaf of bread and a silver knife to its right on a granite kitchen counter",
+        "noun_phrases": [
+            "wooden cutting board",
+            "loaf of bread",
+            "silver knife",
+            "granite kitchen counter"
+        ]
+    },
+    {
+        "sentence": "Small, white ceramic bird statue on a windowsill beside a green succulent in a terracotta pot",
+        "noun_phrases": [
+            "ceramic bird statue",
+            "windowsill",
+            "green succulent",
+            "terracotta pot"
+        ]
+    }
+]

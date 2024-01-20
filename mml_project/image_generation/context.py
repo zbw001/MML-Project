@@ -10,3 +10,7 @@ class AttnOptimContext:
     radius: Optional[float] = None
     epoch: int = 0
     info: Dict[str, Any] = field(default_factory=dict)
+    acc_loss: Union[torch.Tensor, float] = 0.0
+    debug: bool = False
+    step_idx: Optional[int] = None
+    save_interval: int = 1
