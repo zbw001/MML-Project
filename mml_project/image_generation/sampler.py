@@ -331,7 +331,7 @@ class AttnOptimSampler:
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("--config", type=str, default="configs/default.yaml")
+    argparser.add_argument("--config", type=str, default="configs/ours.yaml")
     argparser.add_argument("--prompt", type=str, default="A red apple sits on a white table to the left of a brass lamp")
     argparser.add_argument("--noun_phrases", type=str, default=None)
     argparser.add_argument("--seed", type=int, default=42)
