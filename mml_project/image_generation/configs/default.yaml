@@ -6,8 +6,8 @@ save_interval: 10 # Save every 5 diffusion steps
 
 optimization:
   num_steps: 15
-  clip_loss_coef: 50.0
-  attention_loss_coef: 10.0
+  clip_loss_coef: 500.0
+  attention_loss_coef: 1.0
   weight_initialize_coef: 1.0
   gradient_checkpointing_block_size: 1
   optimizer_type: Adam
@@ -18,7 +18,7 @@ optimization:
 
 layout_predictor:
   cfg_path: ../layout_predictor/configs/model/replicate.yaml
-  model_path: ../layout_predictor/checkpoints/epoch=68-step=4000.ckpt
+  model_path: ../layout_predictor/checkpoints/checkpoint_90_0.0.pth
 
 loss:
   clip_model: openai/clip-vit-base-patch32
