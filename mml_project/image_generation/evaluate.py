@@ -9,8 +9,8 @@ import re
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate the model')
-    parser.add_argument('--config', type=str, default='configs/default.yaml', help='Path to the config file.')
-    parser.add_argument('--dataset', type=str, default='../datasets/gpt4-2.json', help='Dataset to use.')
+    parser.add_argument('--config', type=str, default='configs/ours.yaml', help='Path to the config file.')
+    parser.add_argument('--dataset', type=str, default='../datasets/test.json', help='Dataset to use.')
     args = parser.parse_args()
 
     save_path = Path(f"outputs/eval_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
@@ -32,6 +32,6 @@ if __name__ == '__main__':
     data = json.load(open(dataset_path))
 
     for record in data:
-        sampler.sample(record['sentence'], noun_phrases=record['noun_phrases'])
+        sampler.sample(record['sentence'], noun_phrases=record['noun_phrases'], pos_overrides=record.get('pos_overrides', None))
         output_dir = save_path / re.sub(r'[\\/*?:"<>|]', "_", record['sentence'])
         sampler.save_info(output_dir)

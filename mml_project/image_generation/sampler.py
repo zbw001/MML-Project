@@ -1,5 +1,5 @@
 import torch
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 import torch.nn as nn
 from tqdm.auto import tqdm
 from PIL import Image
@@ -195,9 +195,14 @@ class AttnOptimSampler:
             "object_keys": object_keys,
         }
     
-    def sample(self, prompt: str, seed: int = 42, noun_phrases: List[str] = None):
+    def sample(self, prompt: str, seed: int = 42, noun_phrases: Optional[List[str]] = None, pos_overrides: Optional[Dict[str, Any]] = None):
         self.ctx.info.clear()
         encoder_conds = self._prepare_conditions(prompt=prompt, noun_phrases=noun_phrases)
+        if pos_overrides is not None:
+            for key, value in pos_overrides.items():
+                for obj_key, obj_value in encoder_conds["object_pos"].items():
+                    if not isinstance(obj_value, str) and key in obj_key:
+                        encoder_conds["object_pos"][obj_key] = value
 
         optimizer_cls = None
         if self.cfg.optimization.optimizer_type == "Adam":
