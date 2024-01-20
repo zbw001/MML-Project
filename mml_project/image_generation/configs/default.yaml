@@ -6,7 +6,7 @@ save_interval: 10 # Save every 5 diffusion steps
 
 optimization:
   num_steps: 15
-  clip_loss_coef: 500.0
+  clip_loss_coef: 50.0
   attention_loss_coef: 1.0
   weight_initialize_coef: 1.0
   gradient_checkpointing_block_size: 1

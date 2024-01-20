@@ -126,7 +126,7 @@ class CustomAttnProcessor(AttnProcessor2_0):
 
             common_area = ((1 - masks) * ((1 - sot_avg_attn_map))[2:]).sum(dim=-1)
             if self.ctx.step_idx >= 40 and self.name.startswith("down_blocks.2") or self.name.startswith("up_blocks.1"):
-                self.ctx.acc_loss += - (common_area ** 2).sum()
+                self.ctx.acc_loss += - (common_area.abs() ** 0.5).sum()
 
             if self.ctx.debug and self.ctx.step_idx % self.ctx.save_interval == 0:
                 info_key = (self.ctx.epoch, self.ctx.step_idx, self.name)

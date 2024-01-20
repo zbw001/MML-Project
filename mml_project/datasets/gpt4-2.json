@@ -1,0 +1,108 @@
+[
+    {
+        "sentence": "A purple kangaroo jumping over a small blue fence",
+        "noun_phrases": [
+            "purple kangaroo",
+            "blue fence"
+        ]
+    },
+    {
+        "sentence": "An orange octopus sitting next to a silver laptop",
+        "noun_phrases": [
+            "orange octopus",
+            "silver laptop"
+        ]
+    },
+    {
+        "sentence": "A yellow giraffe standing behind a green bush in the park",
+        "noun_phrases": [
+            "yellow giraffe",
+            "green bush"
+        ]
+    },
+    {
+        "sentence": "A pink dolphin swimming near a large white yacht",
+        "noun_phrases": [
+            "pink dolphin",
+            "white yacht"
+        ]
+    },
+    {
+        "sentence": "A gray elephant walking to the left of a red car",
+        "noun_phrases": [
+            "gray elephant",
+            "red car"
+        ]
+    },
+    {
+        "sentence": "A green parrot perched on top of a black television",
+        "noun_phrases": [
+            "green parrot",
+            "black television"
+        ]
+    },
+    {
+        "sentence": "A white rabbit hiding under a round wooden table",
+        "noun_phrases": [
+            "white rabbit",
+            "wooden table"
+        ]
+    },
+    {
+        "sentence": "A brown bear fishing in a clear blue lake",
+        "noun_phrases": [
+            "brown bear",
+            "blue lake"
+        ]
+    },
+    {
+        "sentence": "A golden fish swimming in a circular glass bowl",
+        "noun_phrases": [
+            "golden fish",
+            "glass bowl"
+        ]
+    },
+    {
+        "sentence": "A black cat sleeping on a bright yellow cushion",
+        "noun_phrases": [
+            "black cat",
+            "yellow cushion"
+        ]
+    },
+    {
+        "sentence": "A red fox running across a snowy field towards a pine tree",
+        "noun_phrases": [
+            "red fox",
+            "snowy field",
+            "pine tree"
+        ]
+    },
+    {
+        "sentence": "A group of colorful birds flying around a tall lighthouse",
+        "noun_phrases": [
+            "colorful birds",
+            "tall lighthouse"
+        ]
+    },
+    {
+        "sentence": "A spotted deer grazing near a calm river",
+        "noun_phrases": [
+            "spotted deer",
+            "calm river"
+        ]
+    },
+    {
+        "sentence": "A white horse standing beside a stone wall",
+        "noun_phrases": [
+            "white horse",
+            "stone wall"
+        ]
+    },
+    {
+        "sentence": "A blue butterfly landing on a blooming pink flower",
+        "noun_phrases": [
+            "blue butterfly",
+            "pink flower"
+        ]
+    }
+]

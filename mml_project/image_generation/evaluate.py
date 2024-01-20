@@ -10,7 +10,7 @@ import re
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Evaluate the model')
     parser.add_argument('--config', type=str, default='configs/default.yaml', help='Path to the config file.')
-    parser.add_argument('--dataset', type=str, default='../datasets/gpt4.json', help='Dataset to use.')
+    parser.add_argument('--dataset', type=str, default='../datasets/gpt4-2.json', help='Dataset to use.')
     args = parser.parse_args()
 
     save_path = Path(f"outputs/eval_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
